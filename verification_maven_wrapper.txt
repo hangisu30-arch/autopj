@@ -1,0 +1,28 @@
+Maven wrapper auto-generation patch verification
+===========================================
+
+Summary
+- Added template-managed Maven wrapper files: mvnw, mvnw.cmd, .mvn/wrapper/maven-wrapper.properties
+- Added execution-core patch path to always write wrapper files into generated Java/eGov projects
+- Added executable bit handling for mvnw when writing files
+- Updated planner/template guards so Gemini/Ollama do not emit wrapper files directly
+- Added tests for template generation, planner rejection, executable permission, and wrapper patcher
+
+Modified files
+- app/ui/template_generator.py
+- app/io/file_writer.py
+- execution_core/project_patcher.py
+- execution_core/run.py
+- app/io/execution_core_apply.py
+- app/engine/backend/backend_task_builder.py
+- app/ui/prompt_templates.py
+- app/ui/json_validator.py
+- tests/test_maven_wrapper_generation.py
+
+Validation
+- pytest -q
+- Result: 102 passed
+
+Note
+- This environment has no external network access, so actual Maven distribution download via mvnw/mvnw.cmd was not executed here.
+- The wrapper bootstrap scripts, metadata generation, and integration points were verified by tests and file generation paths.

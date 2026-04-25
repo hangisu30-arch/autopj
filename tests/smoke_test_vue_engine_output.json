@@ -1,0 +1,82 @@
+{
+  "project_name": "autotest01",
+  "frontend_mode": "vue",
+  "app_root": "frontend/vue",
+  "router_registry_path": "frontend/vue/src/router/index.js",
+  "route_constants_path": "frontend/vue/src/constants/routes.js",
+  "api_client_path": "frontend/vue/src/api/client.js",
+  "pinia_root_path": "frontend/vue/src/stores/index.js",
+  "scaffold_files": [
+    "frontend/vue/package.json",
+    "frontend/vue/vite.config.js",
+    "frontend/vue/index.html",
+    "frontend/vue/src/main.js",
+    "frontend/vue/src/App.vue",
+    "frontend/vue/src/router/index.js",
+    "frontend/vue/src/constants/routes.js",
+    "frontend/vue/src/api/client.js",
+    "frontend/vue/src/stores/index.js"
+  ],
+  "domains": [
+    {
+      "domain_name": "member",
+      "entity_name": "Member",
+      "feature_kind": "crud",
+      "api_prefix": "/api/member",
+      "view_dir": "frontend/vue/src/views/member",
+      "service_path": "frontend/vue/src/services/memberService.js",
+      "store_path": "frontend/vue/src/stores/member.js",
+      "router_name": "Member",
+      "route_base_path": "/member",
+      "artifacts": [
+        {
+          "artifact_type": "view_list",
+          "target_path": "frontend/vue/src/views/member/MemberListView.vue",
+          "purpose": "Member list view",
+          "route_path": "/member",
+          "component_name": "MemberListView",
+          "import_path": "@/views/member/MemberListView.vue",
+          "required": true
+        },
+        {
+          "artifact_type": "view_form",
+          "target_path": "frontend/vue/src/views/member/MemberFormView.vue",
+          "purpose": "Member create/edit form view",
+          "route_path": "/member/create and /member/edit/:id",
+          "component_name": "MemberFormView",
+          "import_path": "@/views/member/MemberFormView.vue",
+          "required": true
+        },
+        {
+          "artifact_type": "view_detail",
+          "target_path": "frontend/vue/src/views/member/MemberDetailView.vue",
+          "purpose": "Member detail view",
+          "route_path": "/member/:id",
+          "component_name": "MemberDetailView",
+          "import_path": "@/views/member/MemberDetailView.vue",
+          "required": true
+        },
+        {
+          "artifact_type": "api_service",
+          "target_path": "frontend/vue/src/services/memberService.js",
+          "purpose": "Member REST API service",
+          "route_path": "",
+          "component_name": "",
+          "import_path": "",
+          "required": true
+        },
+        {
+          "artifact_type": "domain_store",
+          "target_path": "frontend/vue/src/stores/member.js",
+          "purpose": "Member Pinia store",
+          "route_path": "",
+          "component_name": "",
+          "import_path": "",
+          "required": true
+        }
+      ],
+      "forbidden_artifacts": []
+    }
+  ],
+  "warnings": []
+}

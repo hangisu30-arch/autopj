@@ -1,0 +1,98 @@
+def _build_entity_calendar_jsp(schema: Any) -> str:
+    entity = str(getattr(schema, 'entity', '') or 'Item')
+    entity_label = _friendly_nav_label(entity)
+    routes = getattr(schema, 'routes', None) or {}
+    id_prop = str(getattr(schema, 'id_prop', '') or 'id')
+    title_prop = _calendar_field_candidates(schema, ['title', 'subject', 'purpose', 'name', 'roomName', 'reserverName'], ['title', 'subject', 'purpose', 'name'])
+    content_prop = _calendar_field_candidates(schema, ['content', 'description', 'remark', 'memo', 'note'], ['content', 'description', 'remark', 'memo', 'note'])
+    start_prop = _calendar_field_candidates(schema, ['startDatetime', 'startDate', 'startDt', 'regDt'], ['start', 'date', 'datetime'])
+    end_prop = _calendar_field_candidates(schema, ['endDatetime', 'endDate', 'endDt', 'updDt'], ['end'])
+    status_prop = _calendar_field_candidates(schema, ['statusCd', 'status', 'useYn'], ['status'])
+    priority_prop = _calendar_field_candidates(schema, ['priorityCd', 'priority'], ['priority'])
+    location_prop = _calendar_field_candidates(schema, ['location', 'roomName'], ['location', 'room'])
+    form_route = str(routes.get('form') or routes.get('edit') or routes.get('create') or '#')
+    detail_route = str(routes.get('detail') or '#')
+    title_expr = title_prop or id_prop
+    content_expr = content_prop or title_expr
+    location_expr = location_prop or ''
+    status_expr = status_prop or ''
+    priority_expr = priority_prop or ''
+    start_expr = start_prop or ''
+    end_expr = end_prop or ''
+    location_attr = f'data-location="${{fn:escapeXml(item.{location_expr})}}"' if location_expr else 'data-location=""'
+    status_attr = f'data-status="${{item.{status_expr}}}"' if status_expr else 'data-status=""'
+    priority_attr = f'data-priority="${{item.{priority_expr}}}"' if priority_expr else 'data-priority=""'
+    end_attr = f'data-end="${{item.{end_expr}}}"' if end_expr else 'data-end=""'
+    return f'''<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions"%>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{entity_label} 달력</title>
+  <link rel="stylesheet" class="autopj-generated" href="${{pageContext.request.contextPath}}/css/common.css" />
+  <link rel="stylesheet" class="autopj-generated" href="${{pageContext.request.contextPath}}/css/schedule.css" />
+</head>
+<body>
+<%@ include file="/WEB-INF/views/common/header.jsp" %>
+<%@ include file="/WEB-INF/views/common/leftNav.jsp" %>
+<div class="calendar-shell">
+  <div class="page-card schedule-page" data-autopj-schedule-page>
+    <div class="page-header">
+      <div>
+        <h1 class="schedule-page__title">{entity_label} 달력</h1>
+        <p class="schedule-page__desc">월간 달력 중심으로 일정을 확인하고 날짜별 상세 일정을 조회합니다.</p>
+      </div>
+      <div class="action-bar">
+        <a class="btn" href="<c:url value='{form_route}'/>">등록</a>
+      </div>
+    </div>
+    <div class="summary-grid">
+      <div class="summary-card"><div class="summary-card__label">전체 건수</div><div class="summary-card__value" data-role="summary-total">${{fn:length(list)}}</div></div>
+      <div class="summary-card"><div class="summary-card__label">표시 일정</div><div class="summary-card__value" data-role="summary-visible">${{fn:length(list)}}</div></div>
+      <div class="summary-card"><div class="summary-card__label">높은 우선순위</div><div class="summary-card__value" data-role="summary-high">0</div></div>
+    </div>
+    <div class="calendar-toolbar toolbar">
+      <button type="button" class="btn btn-light" data-action="prev-month">이전 달</button>
+      <button type="button" class="btn btn-light" data-action="next-month">다음 달</button>
+      <div class="calendar-toolbar__title" data-role="calendar-current-label">-</div>
+      <div class="action-bar" style="margin-left:auto;"><a class="btn" href="<c:url value='{form_route}'/>">등록</a></div>
+    </div>
+    <div class="schedule-layout">
+      <div class="schedule-sidepanel right-bottom-area">
+        <div class="schedule-list-panel__head">
+          <h2>선택 날짜 일정</h2>
+          <span class="schedule-list-panel__count">달력에서 날짜를 선택하세요.</span>
+        </div>
+        <div data-role="schedule-list"></div>
+      </div>
+      <div class="calendar-board card-panel">
+        <div class="calendar-weekdays"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+        <div class="calendar-grid" data-role="calendar-grid"></div>
+      </div>
+    </div>
+    <div class="autopj-hidden" data-role="schedule-source">
+      <c:forEach var="item" items="${{list}}">
+        <div class="schedule-source-item"
+             data-id="${{item.{id_prop}}}"
+             data-title="${{fn:escapeXml(item.{title_expr})}}"
+             data-content="${{fn:escapeXml(item.{content_expr})}}"
+             data-start="${{item.{start_expr}}}"
+             {end_attr}
+             {status_attr}
+             {priority_attr}
+             {location_attr}
+             data-all-day="false"
+             data-view-url="${{pageContext.request.contextPath}}{detail_route}?{id_prop}=${{item.{id_prop}}}"
+             data-edit-url="${{pageContext.request.contextPath}}{form_route}?{id_prop}=${{item.{id_prop}}}"></div>
+      </c:forEach>
+    </div>
+  </div>
+</div>
+<script src="${{pageContext.request.contextPath}}/js/common.js"></script>
+<script src="${{pageContext.request.contextPath}}/js/schedule.js"></script>
+</body>
+</html>
+'''

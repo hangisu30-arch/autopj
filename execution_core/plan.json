@@ -1,0 +1,34 @@
+{
+  "backend": "egov_spring",
+  "frontend": "jsp",
+  "base_package": "egovframework.autotest01",
+
+  "tasks": [
+    {
+      "path": "java/controller/BoardController.java",
+      "purpose": "Create a Spring MVC controller for Board CRUD operations."
+    },
+    {
+      "path": "java/service/BoardService.java",
+      "purpose": "Define BoardService interface."
+    },
+    {
+      "path": "java/serviceImpl/BoardServiceImpl.java",
+      "purpose": "Implement BoardService with basic CRUD methods."
+    },
+    {
+      "path": "java/vo/BoardVO.java",
+      "purpose": "Define BoardVO with id, title, content fields."
+    },
+    {
+      "path": "jsp/boardList.jsp",
+      "purpose": "Create JSP page to display board list."
+    }
+  ],
+
+  "db_ops": [
+    {
+      "sql": "CREATE TABLE IF NOT EXISTS board (id INT PRIMARY KEY AUTO_INCREMENT, title VARCHAR(255), content TEXT);"
+    }
+  ]
+}

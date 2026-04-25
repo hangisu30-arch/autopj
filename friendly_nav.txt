@@ -1,0 +1,39 @@
+def _friendly_route_meta(route_key: str | None = None) -> str:
+    key = (route_key or '').strip().lower()
+    return {
+        'main': '메인',
+        'list': '목록',
+        'calendar': '달력',
+        'detail': '상세',
+        'view': '상세',
+        'edit': '등록/수정',
+        'form': '등록/수정',
+        'create': '등록',
+        'dashboard': '대시보드',
+        'login': '로그인',
+        'approval': '승인',
+        'admin': '관리자',
+    }.get(key, route_key or '메뉴')
+
+def _friendly_nav_label(entity: str, route_key: str | None = None) -> str:
+    entity_name = (entity or '').strip() or '메뉴'
+    entity_labels = {
+        'schedule': '일정',
+        'member': '회원',
+        'notice': '공지사항',
+        'board': '게시판',
+        'login': '로그인',
+        'dashboard': '대시보드',
+        'room': '공간',
+        'reservation': '예약',
+        'approval': '승인',
+        'admin': '관리자',
+        'reservationapproval': '예약 승인',
+        'reservationadmin': '예약 관리자',
+    }
+    label = entity_labels.get(entity_name.lower(), entity_name)
+    if route_key:
+        route_label = _friendly_route_meta(route_key)
+        if route_label and route_label not in {'메인'}:
+            return f"{label} {route_label}"
+    return label

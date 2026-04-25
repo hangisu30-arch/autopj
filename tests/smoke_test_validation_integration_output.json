@@ -1,0 +1,15 @@
+{
+  "has_validation_block": true,
+  "has_repair_block": true,
+  "validation_preview": [
+    "[GLOBAL VALIDATION REPORT - SOURCE OF TRUTH]",
+    "- ok: True",
+    "- frontend_key: react",
+    "- total_checks: 3"
+  ],
+  "repair_preview": [
+    "[AUTO REPAIR PLAN - SOURCE OF TRUTH]",
+    "- repair_mode: none",
+    "- actions: (none)"
+  ]
+}

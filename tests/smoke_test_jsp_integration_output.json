@@ -1,0 +1,244 @@
+{
+  "analysis_result": {
+    "project": {
+      "project_root": "out_autotest01",
+      "project_name": "autotest01",
+      "base_package": "egovframework.autotest01",
+      "backend_mode": "egov_spring",
+      "frontend_mode": "jsp",
+      "database_type": "mysql"
+    },
+    "inputs": {
+      "requirements_text": "회원 관리: 목록/상세/등록/수정/삭제 화면과 MVC Controller 생성\n        CREATE TABLE member (\n            member_id VARCHAR(50) NOT NULL,\n            member_name VARCHAR(100) NOT NULL,\n            email VARCHAR(100),\n            PRIMARY KEY (member_id)\n        );",
+      "schema_present": true
+    },
+    "domains": [
+      {
+        "name": "member",
+        "entity_name": "Member",
+        "feature_kind": "crud",
+        "auth_required": false,
+        "source_table": "member",
+        "primary_key": "memberId",
+        "primary_key_column": "member_id",
+        "pages": [
+          "list",
+          "detail",
+          "form"
+        ],
+        "api_endpoints": [
+          "GET /api/member",
+          "GET /api/member/{id}",
+          "POST /api/member",
+          "PUT /api/member/{id}",
+          "DELETE /api/member/{id}"
+        ],
+        "fields": [
+          {
+            "name": "memberId",
+            "column": "member_id",
+            "java_type": "String",
+            "db_type": "VARCHAR(50)",
+            "pk": true,
+            "nullable": false,
+            "searchable": false,
+            "display": false
+          },
+          {
+            "name": "memberName",
+            "column": "member_name",
+            "java_type": "String",
+            "db_type": "VARCHAR(100)",
+            "pk": false,
+            "nullable": false,
+            "searchable": true,
+            "display": true
+          },
+          {
+            "name": "email",
+            "column": "email",
+            "java_type": "String",
+            "db_type": "VARCHAR(100)",
+            "pk": false,
+            "nullable": true,
+            "searchable": true,
+            "display": true
+          }
+        ],
+        "file_generation_plan": {
+          "backend": [
+            "vo",
+            "mapper",
+            "mapper_xml",
+            "service",
+            "service_impl",
+            "controller"
+          ],
+          "frontend": [
+            "list_jsp",
+            "detail_jsp",
+            "form_jsp"
+          ]
+        },
+        "forbidden_artifacts": [],
+        "naming": {
+          "package_base": "egovframework.autotest01.member",
+          "web_package": "egovframework.autotest01.member.web",
+          "service_package": "egovframework.autotest01.member.service",
+          "service_impl_package": "egovframework.autotest01.member.service.impl",
+          "mapper_package": "egovframework.autotest01.member.service.mapper",
+          "vo_package": "egovframework.autotest01.member.service.vo",
+          "entity_name": "Member",
+          "vo_class_name": "MemberVO",
+          "mapper_class_name": "MemberMapper",
+          "service_class_name": "MemberService",
+          "service_impl_class_name": "MemberServiceImpl",
+          "controller_class_name": "MemberController",
+          "jsp_list_view": "/WEB-INF/views/member/memberList.jsp",
+          "jsp_detail_view": "/WEB-INF/views/member/memberDetail.jsp",
+          "jsp_form_view": "/WEB-INF/views/member/memberForm.jsp",
+          "react_list_page_path": "frontend/react/src/pages/member/MemberListPage.jsx",
+          "react_detail_page_path": "frontend/react/src/pages/member/MemberDetailPage.jsx",
+          "react_form_page_path": "frontend/react/src/pages/member/MemberFormPage.jsx",
+          "react_api_path": "frontend/react/src/api/memberApi.js"
+        }
+      }
+    ],
+    "warnings": []
+  },
+  "backend_plan": {
+    "project_name": "autotest01",
+    "base_package": "egovframework.autotest01",
+    "backend_mode": "egov_spring",
+    "frontend_mode": "jsp",
+    "database_type": "mysql",
+    "template_managed_files": [
+      "pom.xml",
+      "src/main/resources/application.properties"
+    ],
+    "domains": [
+      {
+        "domain_name": "member",
+        "entity_name": "Member",
+        "feature_kind": "crud",
+        "controller_mode": "mvc_controller",
+        "source_table": "member",
+        "primary_key": "memberId",
+        "primary_key_column": "member_id",
+        "base_package": "egovframework.autotest01",
+        "artifacts": [
+          {
+            "artifact_type": "vo",
+            "target_path": "src/main/java/egovframework/autotest01/member/service/vo/MemberVO.java",
+            "purpose": "Member VO",
+            "class_name": "MemberVO",
+            "package": "egovframework.autotest01.member.service.vo",
+            "controller_mode": "",
+            "required": true
+          },
+          {
+            "artifact_type": "mapper",
+            "target_path": "src/main/java/egovframework/autotest01/member/service/mapper/MemberMapper.java",
+            "purpose": "Member MyBatis mapper interface",
+            "class_name": "MemberMapper",
+            "package": "egovframework.autotest01.member.service.mapper",
+            "controller_mode": "",
+            "required": true
+          },
+          {
+            "artifact_type": "mapper_xml",
+            "target_path": "src/main/resources/egovframework/mapper/member/MemberMapper.xml",
+            "purpose": "Member MyBatis mapper XML",
+            "class_name": "",
+            "package": "",
+            "controller_mode": "",
+            "required": true
+          },
+          {
+            "artifact_type": "service",
+            "target_path": "src/main/java/egovframework/autotest01/member/service/MemberService.java",
+            "purpose": "Member service interface",
+            "class_name": "MemberService",
+            "package": "egovframework.autotest01.member.service",
+            "controller_mode": "",
+            "required": true
+          },
+          {
+            "artifact_type": "service_impl",
+            "target_path": "src/main/java/egovframework/autotest01/member/service/impl/MemberServiceImpl.java",
+            "purpose": "Member service implementation",
+            "class_name": "MemberServiceImpl",
+            "package": "egovframework.autotest01.member.service.impl",
+            "controller_mode": "",
+            "required": true
+          },
+          {
+            "artifact_type": "controller",
+            "target_path": "src/main/java/egovframework/autotest01/member/web/MemberController.java",
+            "purpose": "Member mvc_controller backend controller",
+            "class_name": "MemberController",
+            "package": "egovframework.autotest01.member.web",
+            "controller_mode": "mvc_controller",
+            "required": true
+          },
+          {
+            "artifact_type": "mybatis_config",
+            "target_path": "src/main/java/egovframework/autotest01/member/config/MyBatisConfig.java",
+            "purpose": "MyBatis mapper scan configuration",
+            "class_name": "MyBatisConfig",
+            "package": "egovframework.autotest01.member.config",
+            "controller_mode": "",
+            "required": true
+          }
+        ],
+        "forbidden_methods": []
+      }
+    ],
+    "warnings": []
+  },
+  "jsp_plan": {
+    "project_name": "autotest01",
+    "base_package": "egovframework.autotest01",
+    "frontend_mode": "jsp",
+    "view_root": "src/main/webapp/WEB-INF/views",
+    "domains": [
+      {
+        "domain_name": "member",
+        "entity_name": "Member",
+        "feature_kind": "crud",
+        "controller_class_name": "MemberController",
+        "controller_package": "egovframework.autotest01.member.web",
+        "source_table": "member",
+        "primary_key": "memberId",
+        "model_attribute_name": "member",
+        "base_view_dir": "src/main/webapp/WEB-INF/views/member",
+        "views": [
+          {
+            "artifact_type": "list_jsp",
+            "target_path": "src/main/webapp/WEB-INF/views/member/memberList.jsp",
+            "view_name": "member/memberList",
+            "purpose": "Member list page",
+            "required": true
+          },
+          {
+            "artifact_type": "detail_jsp",
+            "target_path": "src/main/webapp/WEB-INF/views/member/memberDetail.jsp",
+            "view_name": "member/memberDetail",
+            "purpose": "Member detail page",
+            "required": true
+          },
+          {
+            "artifact_type": "form_jsp",
+            "target_path": "src/main/webapp/WEB-INF/views/member/memberForm.jsp",
+            "view_name": "member/memberForm",
+            "purpose": "Member create/update form page",
+            "required": true
+          }
+        ],
+        "forbidden_views": []
+      }
+    ],
+    "warnings": []
+  },
+  "prompt_contains_jsp_plan": true
+}

@@ -1,0 +1,32 @@
+{
+  "summary": [
+    "UI REINFORCEMENT SUMMARY",
+    "- output_dir: /tmp/tmpm91x5d1i",
+    "- debug_dir_exists: True",
+    "- project_name: autotest01",
+    "- backend_mode: egov_spring",
+    "- frontend_mode: react",
+    "- database_type: mysql",
+    "- domains: 1"
+  ],
+  "analysis_head": [
+    "[ANALYSIS RESULT]",
+    "- project_name: autotest01",
+    "- base_package: egovframework.autotest01",
+    "- frontend_mode: react",
+    "- database_type: mysql",
+    "",
+    "- domains:",
+    "  - member: feature_kind=crud, table=member, pk=memberId"
+  ],
+  "plan_head": [
+    "[BACKEND PLAN]",
+    "- template_managed_files: pom.xml, src/main/resources/application.properties",
+    "  - member: feature_kind=crud, controller_mode=rest_controller",
+    "    vo: src/main/java/egovframework/autotest01/member/service/vo/MemberVO.java",
+    "    mapper: src/main/java/egovframework/autotest01/member/service/mapper/MemberMapper.java",
+    "    mapper_xml: src/main/resources/egovframework/mapper/member/MemberMapper.xml",
+    "    service: src/main/java/egovframework/autotest01/member/service/MemberService.java",
+    "    service_impl: src/main/java/egovframework/autotest01/member/service/impl/MemberServiceImpl.java"
+  ]
+}

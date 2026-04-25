@@ -1,0 +1,109 @@
+{
+  "project": {
+    "project_root": "C:\\eGovFrameDev-4.3.1-64bit\\workspace-egov\\autotest01",
+    "project_name": "autotest01",
+    "base_package": "egovframework.autotest01",
+    "backend_mode": "egov_spring",
+    "frontend_mode": "react",
+    "database_type": "mysql"
+  },
+  "inputs": {
+    "requirements_text": "회원 관리: 목록/상세/등록/수정/삭제 화면과 REST API 생성",
+    "schema_present": true
+  },
+  "domains": [
+    {
+      "name": "member",
+      "entity_name": "Member",
+      "feature_kind": "crud",
+      "auth_required": false,
+      "source_table": "member",
+      "primary_key": "memberId",
+      "primary_key_column": "member_id",
+      "pages": [
+        "list",
+        "detail",
+        "form"
+      ],
+      "api_endpoints": [
+        "GET /api/member",
+        "GET /api/member/{id}",
+        "POST /api/member",
+        "PUT /api/member/{id}",
+        "DELETE /api/member/{id}"
+      ],
+      "fields": [
+        {
+          "name": "memberId",
+          "column": "member_id",
+          "java_type": "String",
+          "db_type": "VARCHAR(50)",
+          "pk": true,
+          "nullable": false,
+          "searchable": false,
+          "display": false
+        },
+        {
+          "name": "memberName",
+          "column": "member_name",
+          "java_type": "String",
+          "db_type": "VARCHAR(100)",
+          "pk": false,
+          "nullable": false,
+          "searchable": true,
+          "display": true
+        },
+        {
+          "name": "email",
+          "column": "email",
+          "java_type": "String",
+          "db_type": "VARCHAR(100)",
+          "pk": false,
+          "nullable": true,
+          "searchable": true,
+          "display": true
+        }
+      ],
+      "file_generation_plan": {
+        "backend": [
+          "vo",
+          "mapper",
+          "mapper_xml",
+          "service",
+          "service_impl",
+          "controller"
+        ],
+        "frontend": [
+          "page_list",
+          "page_detail",
+          "page_form",
+          "api",
+          "route"
+        ]
+      },
+      "forbidden_artifacts": [],
+      "naming": {
+        "package_base": "egovframework.autotest01.member",
+        "web_package": "egovframework.autotest01.member.web",
+        "service_package": "egovframework.autotest01.member.service",
+        "service_impl_package": "egovframework.autotest01.member.service.impl",
+        "mapper_package": "egovframework.autotest01.member.service.mapper",
+        "vo_package": "egovframework.autotest01.member.service.vo",
+        "entity_name": "Member",
+        "vo_class_name": "MemberVO",
+        "mapper_class_name": "MemberMapper",
+        "service_class_name": "MemberService",
+        "service_impl_class_name": "MemberServiceImpl",
+        "controller_class_name": "MemberRestController",
+        "jsp_list_view": "/WEB-INF/views/member/memberList.jsp",
+        "jsp_detail_view": "/WEB-INF/views/member/memberDetail.jsp",
+        "jsp_form_view": "/WEB-INF/views/member/memberForm.jsp",
+        "react_list_page_path": "frontend/react/src/pages/member/MemberListPage.jsx",
+        "react_detail_page_path": "frontend/react/src/pages/member/MemberDetailPage.jsx",
+        "react_form_page_path": "frontend/react/src/pages/member/MemberFormPage.jsx",
+        "react_api_path": "frontend/react/src/api/memberApi.js"
+      }
+    }
+  ],
+  "warnings": []
+}

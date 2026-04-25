@@ -1,0 +1,25 @@
+autopj13 cumulative hardening summary
+
+Applied fixes:
+1. Entry controllers (Index/Home/Main) are now treated as redirect-only in generated content validation.
+2. Calendar controller validation no longer forces /calendar.do on redirect-only entry controllers.
+3. JSP jquery dependency validation now respects common/header.jsp includes.
+4. JSP auto-repair can inject a jquery include when jquery syntax is present without a script include.
+5. Common header builders now emit a jquery include tag for JSP layouts.
+6. Compile-repair now performs local deterministic repairs before regen:
+   - rewrites entry controllers to redirect-only
+   - refreshes Service/ServiceImpl/Mapper/Mapper.xml/VO/Controller contract bundles using builtin fallback templates
+7. Compile-repair skips regen callback for files already fixed by the local deterministic repair.
+
+Files changed:
+- app/ui/generated_content_validator.py
+- app/validation/generated_project_validator.py
+- app/validation/project_auto_repair.py
+- app/validation/backend_compile_repair.py
+- app/io/execution_core_apply.py
+- execution_core/builtin_crud.py
+- tests/test_entry_contract_and_jquery_hardening.py
+
+Validation:
+- targeted regression tests: 17 passed
+- full test suite: 126 passed

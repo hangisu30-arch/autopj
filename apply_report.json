@@ -1,0 +1,28 @@
+{
+  "created": [],
+  "overwritten": [
+    "pom.xml",
+    "src/main/resources/application.properties",
+    "src/main/java/egovframework/autotest05/member/service/vo/MemberVO.java",
+    "src/main/java/egovframework/autotest05/member/service/mapper/MemberMapper.java",
+    "src/main/resources/egovframework/mapper/autotest05/member/MemberMapper.xml",
+    "src/main/java/egovframework/autotest05/member/service/MemberService.java",
+    "src/main/java/egovframework/autotest05/member/service/impl/MemberServiceImpl.java",
+    "src/main/java/egovframework/autotest05/member/web/MemberController.java",
+    "src/main/webapp/assets/css/app.css",
+    "src/main/webapp/WEB-INF/views/member/memberList.jsp",
+    "src/main/webapp/WEB-INF/views/member/memberDetail.jsp",
+    "src/main/webapp/WEB-INF/views/member/memberForm.jsp",
+    "src/main/webapp/WEB-INF/views/member/memberLogin.jsp"
+  ],
+  "skipped": [],
+  "errors": [],
+  "patched": {
+    "application.properties": "C:\\Users\\조재호\\PycharmProjects\\autopj\\src\\main\\resources\\application.properties",
+    "datasource": "ok",
+    "MyBatisConfig": "C:\\Users\\조재호\\PycharmProjects\\autopj\\src\\main\\java\\egovframework\\autotest05\\config\\MyBatisConfig.java",
+    "pom_mysql_driver": false,
+    "pom_jsp_support": false,
+    "db_apply": "mysql.connector not available: No module named 'mysql'"
+  }
+}

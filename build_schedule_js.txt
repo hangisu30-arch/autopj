@@ -1,0 +1,183 @@
+def _build_schedule_js() -> str:
+    return """(function () {
+  function safeDate(value) {
+    if (!value) return null;
+    var normalized = String(value).replace(' ', 'T');
+    var parsed = new Date(normalized);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+  function pad(value) {
+    return String(value).padStart(2, '0');
+  }
+  function formatDateLabel(date) {
+    if (!date) return '-';
+    return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+  }
+  function formatDateTimeLabel(date) {
+    if (!date) return '-';
+    return formatDateLabel(date) + ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes()) + ':' + pad(date.getSeconds());
+  }
+  function formatTimeLabel(date) {
+    if (!date) return '';
+    return pad(date.getHours()) + ':' + pad(date.getMinutes());
+  }
+  function isSameDate(a, b) {
+    return !!a && !!b
+      && a.getFullYear() === b.getFullYear()
+      && a.getMonth() === b.getMonth()
+      && a.getDate() === b.getDate();
+  }
+  function collectItems(root) {
+    return Array.prototype.slice.call(root.querySelectorAll('.schedule-source-item')).map(function (node) {
+      return {
+        id: node.dataset.id || '',
+        title: node.dataset.title || '제목 없음',
+        content: node.dataset.content || '',
+        start: safeDate(node.dataset.start),
+        end: safeDate(node.dataset.end),
+        status: (node.dataset.status || '').trim(),
+        priority: (node.dataset.priority || '').trim(),
+        location: node.dataset.location || '',
+        allDay: (node.dataset.allDay || '').toLowerCase() === 'true',
+        viewUrl: node.dataset.viewUrl || '#',
+        editUrl: node.dataset.editUrl || '#'
+      };
+    });
+  }
+  function initSchedulePage(root) {
+    var source = root.querySelector('[data-role="schedule-source"]');
+    var calendarGrid = root.querySelector('[data-role="calendar-grid"]');
+    var listWrap = root.querySelector('[data-role="schedule-list"]');
+    var currentLabel = root.querySelector('[data-role="calendar-current-label"]');
+    var totalEl = root.querySelector('[data-role="summary-total"]');
+    var visibleEl = root.querySelector('[data-role="summary-visible"]');
+    var highEl = root.querySelector('[data-role="summary-high"]');
+    var searchInput = root.querySelector('[data-role="schedule-search"]');
+    var statusFilter = root.querySelector('[data-role="status-filter"]');
+    var priorityFilter = root.querySelector('[data-role="priority-filter"]');
+    var monthCursor = new Date();
+    monthCursor.setDate(1);
+    monthCursor.setHours(0, 0, 0, 0);
+    var items = collectItems(source || root);
+    var selectedDate = new Date(monthCursor);
+
+    function filteredItems() {
+      var keyword = (searchInput && searchInput.value || '').trim().toLowerCase();
+      var status = statusFilter && statusFilter.value || '';
+      var priority = priorityFilter && priorityFilter.value || '';
+      return items.filter(function (item) {
+        var matchesKeyword = !keyword || [item.title, item.content, item.location].join(' ').toLowerCase().indexOf(keyword) >= 0;
+        var matchesStatus = !status || item.status === status;
+        var matchesPriority = !priority || item.priority === priority;
+        return matchesKeyword && matchesStatus && matchesPriority;
+      });
+    }
+    function renderSummary(active) {
+      if (totalEl) totalEl.textContent = String(items.length);
+      if (visibleEl) visibleEl.textContent = String(active.length);
+      if (highEl) highEl.textContent = String(active.filter(function (item) { return item.priority && item.priority.toUpperCase().indexOf('HIGH') >= 0; }).length);
+    }
+    function renderList(active) {
+      if (!listWrap) return;
+      var selectedItems = active.filter(function (item) { return isSameDate(item.start, selectedDate); });
+      if (!selectedItems.length) {
+        listWrap.innerHTML = '<div class="empty-state">선택한 날짜에 등록된 일정이 없습니다.</div>';
+        return;
+      }
+      listWrap.innerHTML = '<ul class="schedule-event-list">' + selectedItems.map(function (item) {
+        var when = formatDateTimeLabel(item.start);
+        var status = escapeHtml(item.status || '미정');
+        var priority = escapeHtml(item.priority || '보통');
+        var desc = escapeHtml(item.content || '상세 설명이 없습니다.');
+        var location = escapeHtml(item.location || '장소 미정');
+        return '<li class="schedule-event-item">'
+          + '<div class="schedule-event-item__top"><span class="badge">' + status + '</span><span class="badge">' + priority + '</span></div>'
+          + '<h3 class="schedule-event-item__title"><a href="' + escapeHtml(item.viewUrl) + '">' + escapeHtml(item.title) + '</a></h3>'
+          + '<p class="schedule-event-item__description">' + desc + '</p>'
+          + '<div class="schedule-event-item__meta"><span>' + when + '</span><span>' + location + '</span></div>'
+          + '<div class="schedule-event-item__actions"><a class="btn btn-light" href="' + escapeHtml(item.viewUrl) + '">상세</a><a class="btn" href="' + escapeHtml(item.editUrl) + '">수정</a></div>'
+          + '</li>';
+      }).join('') + '</ul>';
+    }
+    function renderCalendar(active) {
+      if (!calendarGrid) return;
+      var first = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
+      var firstDay = first.getDay();
+      var start = new Date(first);
+      start.setDate(first.getDate() - firstDay);
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+      var cells = [];
+      for (var i = 0; i < 42; i += 1) {
+        var cellDate = new Date(start);
+        cellDate.setDate(start.getDate() + i);
+        cellDate.setHours(0, 0, 0, 0);
+        var sameMonth = cellDate.getMonth() === monthCursor.getMonth();
+        var dayItems = active.filter(function (item) { return isSameDate(item.start, cellDate); });
+        var chips = dayItems.slice(0, 3).map(function (item) {
+          var classes = 'calendar-event-chip';
+          if (item.status && item.status.toUpperCase().indexOf('DONE') >= 0) classes += ' is-done';
+          if (item.priority && item.priority.toUpperCase().indexOf('HIGH') >= 0) classes += ' is-high';
+          return '<a class="' + classes + '" href="' + escapeHtml(item.viewUrl) + '" title="' + escapeHtml(item.title) + '">' + (item.start ? ('[' + escapeHtml(formatTimeLabel(item.start)) + '] ') : '') + escapeHtml(item.title) + '</a>';
+        }).join('');
+        if (dayItems.length > 3) {
+          chips += '<span class="calendar-event-chip">외 ' + (dayItems.length - 3) + '건</span>';
+        }
+        var classes = 'calendar-cell';
+        if (!sameMonth) classes += ' is-muted';
+        if (cellDate.getTime() === today.getTime()) classes += ' is-today';
+        if (isSameDate(cellDate, selectedDate)) classes += ' is-selected';
+        cells.push('<button type="button" class="' + classes + '" data-role="calendar-cell" data-date="' + formatDateLabel(cellDate) + '"><div class="calendar-cell__day"><span>' + cellDate.getDate() + '</span><span>' + dayItems.length + '건</span></div><div class="calendar-cell__events">' + chips + '</div></button>');
+      }
+      calendarGrid.innerHTML = cells.join('');
+      Array.prototype.slice.call(calendarGrid.querySelectorAll('[data-role="calendar-cell"]')).forEach(function (button) {
+        button.addEventListener('click', function (event) {
+          if (event.target && event.target.closest('a')) return;
+          selectedDate = safeDate(button.dataset.date) || selectedDate;
+          rerender();
+        });
+      });
+      if (currentLabel) {
+        currentLabel.textContent = monthCursor.getFullYear() + '년 ' + String(monthCursor.getMonth() + 1).padStart(2, '0') + '월 / 선택일 ' + formatDateLabel(selectedDate);
+      }
+    }
+    function rerender() {
+      var active = filteredItems();
+      renderSummary(active);
+      renderCalendar(active);
+      renderList(active);
+    }
+    root.querySelectorAll('[data-action="prev-month"]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth() - 1, 1);
+        selectedDate = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
+        rerender();
+      });
+    });
+    root.querySelectorAll('[data-action="next-month"]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1);
+        selectedDate = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
+        rerender();
+      });
+    });
+    [searchInput, statusFilter, priorityFilter].forEach(function (el) {
+      if (!el) return;
+      el.addEventListener('input', rerender);
+      el.addEventListener('change', rerender);
+    });
+    rerender();
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-autopj-schedule-page]').forEach(initSchedulePage);
+  });
+})();
+"""

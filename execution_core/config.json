@@ -1,0 +1,23 @@
+{
+  "ai": {
+    "planner": {
+      "provider": "gemini",
+      "model": "gemini-3-flash-preview",
+      "api_key": "AIzaSyD7ZN02WaarijGCtAqKl1pE6IgvxnuFDpA"
+    },
+    "executor": {
+      "provider": "ollama",
+      "model": "qwen2.5-coder:14b",
+      "timeout": 1800
+    }
+  },
+  "database": {
+    "enabled": true,
+    "driver": "mysql",
+    "host": "localhost",
+    "port": 3306,
+    "database": "egov_auto_db",
+    "username": "root",
+    "password": "1111"
+  }
+}

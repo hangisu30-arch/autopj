@@ -1,0 +1,13 @@
+{
+  "mode": "source_fallback",
+  "summary_head": [
+    "UI REINFORCEMENT SUMMARY",
+    "- output_dir: /tmp/tmpamboupbx",
+    "- debug_dir_exists: True",
+    "- project_name: autotest01",
+    "- backend_mode: egov_spring",
+    "- frontend_mode: react",
+    "- database_type: mysql",
+    "- domains: 1"
+  ]
+}

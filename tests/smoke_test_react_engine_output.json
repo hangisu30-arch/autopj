@@ -1,0 +1,70 @@
+{
+  "project_name": "autotest01",
+  "frontend_mode": "react",
+  "app_root": "frontend/react",
+  "route_registry_path": "frontend/react/src/routes/index.jsx",
+  "route_constants_path": "frontend/react/src/constants/routes.js",
+  "api_client_path": "frontend/react/src/api/client.js",
+  "scaffold_files": [
+    "frontend/react/package.json",
+    "frontend/react/vite.config.js",
+    "frontend/react/index.html",
+    "frontend/react/src/main.jsx",
+    "frontend/react/src/App.jsx",
+    "frontend/react/src/routes/index.jsx",
+    "frontend/react/src/constants/routes.js",
+    "frontend/react/src/api/client.js"
+  ],
+  "domains": [
+    {
+      "domain_name": "member",
+      "entity_name": "Member",
+      "feature_kind": "crud",
+      "api_prefix": "/api/member",
+      "page_dir": "frontend/react/src/pages/member",
+      "service_path": "frontend/react/src/api/services/member.js",
+      "route_constant_key": "MEMBER",
+      "route_base_path": "/member",
+      "artifacts": [
+        {
+          "artifact_type": "page_list",
+          "target_path": "frontend/react/src/pages/member/MemberListPage.jsx",
+          "purpose": "Member list page",
+          "route_path": "/member",
+          "component_name": "MemberListPage",
+          "import_path": "@/pages/member/MemberListPage",
+          "required": true
+        },
+        {
+          "artifact_type": "page_form",
+          "target_path": "frontend/react/src/pages/member/MemberFormPage.jsx",
+          "purpose": "Member create/edit form page",
+          "route_path": "/member/create and /member/edit/:id",
+          "component_name": "MemberFormPage",
+          "import_path": "@/pages/member/MemberFormPage",
+          "required": true
+        },
+        {
+          "artifact_type": "page_detail",
+          "target_path": "frontend/react/src/pages/member/MemberDetailPage.jsx",
+          "purpose": "Member detail page",
+          "route_path": "/member/:id",
+          "component_name": "MemberDetailPage",
+          "import_path": "@/pages/member/MemberDetailPage",
+          "required": true
+        },
+        {
+          "artifact_type": "api_service",
+          "target_path": "frontend/react/src/api/services/member.js",
+          "purpose": "Member REST API service",
+          "route_path": "",
+          "component_name": "",
+          "import_path": "",
+          "required": true
+        }
+      ],
+      "forbidden_artifacts": []
+    }
+  ],
+  "warnings": []
+}

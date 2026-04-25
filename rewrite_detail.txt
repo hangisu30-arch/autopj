@@ -1,0 +1,91 @@
+def _rewrite_detail_jsp_from_schema(project_root: Path, rel_path: str, schema: Any) -> bool:
+    path = project_root / rel_path
+    if not path.exists() or path.suffix.lower() != '.jsp':
+        return False
+    fields = list(getattr(schema, 'fields', []) or [])
+    rows: List[str] = []
+    for prop, col, jt in fields:
+        if prop == getattr(schema, 'id_prop', None):
+            continue
+        if _is_hidden_form_helper_field(prop, col):
+            continue
+        label = _autopj_field_label(prop)
+        if jt in ('Boolean', 'boolean'):
+            value_markup = f'<c:choose><c:when test="${{item.{prop}}}">예</c:when><c:otherwise>아니오</c:otherwise></c:choose>'
+        elif _autopj_is_date_java_type(jt) and not _autopj_is_date_only_name(prop, col):
+            value_markup = f'<span data-autopj-display="datetime"><c:out value="${{item.{prop}}}"/></span>'
+        elif _autopj_is_date_java_type(jt) and _autopj_is_date_only_name(prop, col):
+            value_markup = f'<span data-autopj-display="date"><c:out value="${{item.{prop}}}"/></span>'
+        else:
+            value_markup = f'<c:out value="${{item.{prop}}}"/>'
+        rows.append(f'''      <div class="autopj-field"><span class="autopj-field__label">{label}</span><div class="autopj-field__value">{value_markup}</div></div>''')
+    details_block = '\n'.join(rows)
+    back = str((getattr(schema, 'routes', {}) or {}).get('calendar') or (getattr(schema, 'routes', {}) or {}).get('list') or '/')
+    form = str((getattr(schema, 'routes', {}) or {}).get('form') or '')
+    delete_route = str((getattr(schema, 'routes', {}) or {}).get('delete') or '')
+    id_prop = str(getattr(schema, 'id_prop', '') or 'id')
+    edit_link = ''
+    if form:
+        edit_link = f'''        <a class="btn" href="<c:url value='{form}'/>?{id_prop}=${{item.{id_prop}}}">수정</a>'''
+    delete_form = ''
+    if delete_route:
+        delete_form = f'''        <form action="<c:url value='{delete_route}'/>" method="post" style="margin:0;display:inline-flex;">
+          <input type="hidden" name="{id_prop}" value="${{item.{id_prop}}}"/>
+          <button type="submit" onclick="return confirm('삭제하시겠습니까?');">삭제</button>
+        </form>'''
+    entity = str(getattr(schema, 'entity', '') or 'Item')
+    entity_label = _friendly_nav_label(entity)
+    page = f'''<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{entity_label} 상세</title>
+</head>
+<body>
+<%@ include file="/WEB-INF/views/common/header.jsp" %>
+<%@ include file="/WEB-INF/views/common/leftNav.jsp" %>
+<section class="page-shell master-detail-shell autopj-detail-page">
+  <div class="autopj-form-hero page-card">
+    <div>
+      <p class="autopj-eyebrow">{entity_label}</p>
+      <h2 class="autopj-form-title">{entity_label} 상세</h2>
+      <p class="autopj-form-subtitle">상세 정보를 보기 쉬운 카드 레이아웃으로 확인합니다.</p>
+    </div>
+    <div class="autopj-form-hero__meta">
+      <span class="badge">상세 보기</span>
+      <span class="autopj-helper">날짜/시간은 yyyy-mm-dd hh:mm:ss 형식으로 표시합니다.</span>
+    </div>
+  </div>
+  <c:if test="${{empty item}}">
+    <div class="empty-state">조회된 데이터가 없습니다.</div>
+  </c:if>
+  <c:if test="${{not empty item}}">
+    <div class="detail-card autopj-form-card">
+      <div class="autopj-form-section-header">
+        <div>
+          <h3 class="autopj-section-title">상세 정보</h3>
+          <p class="autopj-section-subtitle">등록된 핵심 필드를 한눈에 확인합니다.</p>
+        </div>
+      </div>
+      <div class="autopj-form-grid">
+{details_block}
+      </div>
+      <div class="autopj-form-actions">
+{edit_link}
+{delete_form}
+        <a class="btn btn-secondary" href="<c:url value='{back}'/>">목록으로</a>
+      </div>
+    </div>
+  </c:if>
+</section>
+</body>
+</html>
+'''
+    original = path.read_text(encoding='utf-8')
+    if original == page:
+        return False
+    path.write_text(page, encoding='utf-8')
+    return True

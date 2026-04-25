@@ -1,0 +1,933 @@
+{
+  "member_crud": {
+    "project": {
+      "project_root": "/tmp/autopj_ir/demo_project",
+      "project_name": "demo_project",
+      "base_package": "egovframework.demo_project",
+      "backend_mode": "egov_spring",
+      "frontend_mode": "react",
+      "database_type": "mysql"
+    },
+    "inputs": {
+      "requirements_text": "회원 관리 목록/상세/등록/수정/삭제 화면과 REST API 생성",
+      "schema_present": true
+    },
+    "ir_version": "1.0",
+    "generation_policy": {
+      "modifyExistingOnly": true,
+      "relatedFilesOnly": true,
+      "preserveCommonAssets": true,
+      "mergeCommonCss": true
+    },
+    "domains": [
+      {
+        "name": "member",
+        "entity_name": "Member",
+        "feature_kind": "crud",
+        "auth_required": false,
+        "source_table": "member",
+        "primary_key": "memberId",
+        "primary_key_column": "member_id",
+        "pages": [
+          "list",
+          "detail",
+          "form"
+        ],
+        "api_endpoints": [
+          "GET /api/member",
+          "GET /api/member/{id}",
+          "POST /api/member",
+          "PUT /api/member/{id}",
+          "DELETE /api/member/{id}"
+        ],
+        "fields": [
+          {
+            "name": "memberId",
+            "column": "member_id",
+            "java_type": "String",
+            "db_type": "VARCHAR(50)",
+            "pk": true,
+            "nullable": false,
+            "searchable": false,
+            "display": false,
+            "role": "business",
+            "editable": null,
+            "visible_in_form": null,
+            "visible_in_detail": null,
+            "visible_in_list": null,
+            "source": "",
+            "default_value": "",
+            "java_import": "",
+            "javaImport": "",
+            "visibleInForm": null,
+            "visibleInDetail": null,
+            "visibleInList": null,
+            "defaultValue": ""
+          },
+          {
+            "name": "memberName",
+            "column": "member_name",
+            "java_type": "String",
+            "db_type": "VARCHAR(100)",
+            "pk": false,
+            "nullable": false,
+            "searchable": true,
+            "display": true,
+            "role": "business",
+            "editable": null,
+            "visible_in_form": null,
+            "visible_in_detail": null,
+            "visible_in_list": null,
+            "source": "",
+            "default_value": "",
+            "java_import": "",
+            "javaImport": "",
+            "visibleInForm": null,
+            "visibleInDetail": null,
+            "visibleInList": null,
+            "defaultValue": ""
+          },
+          {
+            "name": "email",
+            "column": "email",
+            "java_type": "String",
+            "db_type": "VARCHAR(100)",
+            "pk": false,
+            "nullable": true,
+            "searchable": true,
+            "display": true,
+            "role": "business",
+            "editable": null,
+            "visible_in_form": null,
+            "visible_in_detail": null,
+            "visible_in_list": null,
+            "source": "",
+            "default_value": "",
+            "java_import": "",
+            "javaImport": "",
+            "visibleInForm": null,
+            "visibleInDetail": null,
+            "visibleInList": null,
+            "defaultValue": ""
+          }
+        ],
+        "file_generation_plan": {
+          "backend": [
+            "vo",
+            "mapper",
+            "mapper_xml",
+            "service",
+            "service_impl",
+            "controller"
+          ],
+          "frontend": [
+            "page_list",
+            "page_detail",
+            "page_form",
+            "api",
+            "route"
+          ]
+        },
+        "forbidden_artifacts": [],
+        "naming": {
+          "package_base": "egovframework.demo_project.member",
+          "web_package": "egovframework.demo_project.member.web",
+          "service_package": "egovframework.demo_project.member.service",
+          "service_impl_package": "egovframework.demo_project.member.service.impl",
+          "mapper_package": "egovframework.demo_project.member.service.mapper",
+          "vo_package": "egovframework.demo_project.member.service.vo",
+          "entity_name": "Member",
+          "vo_class_name": "MemberVO",
+          "mapper_class_name": "MemberMapper",
+          "service_class_name": "MemberService",
+          "service_impl_class_name": "MemberServiceImpl",
+          "controller_class_name": "MemberRestController",
+          "jsp_list_view": "/WEB-INF/views/member/memberList.jsp",
+          "jsp_detail_view": "/WEB-INF/views/member/memberDetail.jsp",
+          "jsp_form_view": "/WEB-INF/views/member/memberForm.jsp",
+          "react_list_page_path": "frontend/react/src/pages/member/MemberListPage.jsx",
+          "react_detail_page_path": "frontend/react/src/pages/member/MemberDetailPage.jsx",
+          "react_form_page_path": "frontend/react/src/pages/member/MemberFormPage.jsx",
+          "react_api_path": "frontend/react/src/api/memberApi.js"
+        },
+        "ir": {
+          "domain": {
+            "name": "member",
+            "entityName": "Member",
+            "table": "member",
+            "displayName": "Member"
+          },
+          "classification": {
+            "primaryPattern": "crud",
+            "secondaryPatterns": [
+              "list",
+              "detail",
+              "form"
+            ],
+            "boardLike": true,
+            "authRelated": false
+          },
+          "mainEntry": {
+            "viewType": "list",
+            "route": "/member",
+            "page": "frontend/react/src/pages/member/MemberListPage.jsx"
+          },
+          "capabilities": [
+            "list_view",
+            "detail_view",
+            "create",
+            "update",
+            "delete",
+            "search_filter"
+          ],
+          "dataModel": {
+            "fields": [
+              {
+                "name": "memberId",
+                "column": "member_id",
+                "type": "String",
+                "dbType": "VARCHAR(50)",
+                "pk": true,
+                "nullable": false,
+                "role": "identifier",
+                "editable": false,
+                "visibleInForm": false,
+                "visibleInDetail": true,
+                "visibleInList": false,
+                "searchable": false
+              },
+              {
+                "name": "memberName",
+                "column": "member_name",
+                "type": "String",
+                "dbType": "VARCHAR(100)",
+                "pk": false,
+                "nullable": false,
+                "role": "business",
+                "editable": true,
+                "visibleInForm": true,
+                "visibleInDetail": true,
+                "visibleInList": true,
+                "searchable": true
+              },
+              {
+                "name": "email",
+                "column": "email",
+                "type": "String",
+                "dbType": "VARCHAR(100)",
+                "pk": false,
+                "nullable": true,
+                "role": "business",
+                "editable": true,
+                "visibleInForm": true,
+                "visibleInDetail": true,
+                "visibleInList": true,
+                "searchable": true
+              }
+            ],
+            "formHiddenFields": [
+              "memberId"
+            ],
+            "requiredJavaImports": []
+          },
+          "queries": [
+            {
+              "id": "selectMemberList",
+              "type": "list",
+              "params": [],
+              "returns": "MemberVO[]"
+            },
+            {
+              "id": "selectMember",
+              "type": "detail",
+              "params": [
+                "memberId"
+              ],
+              "returns": "MemberVO"
+            }
+          ],
+          "actions": [
+            {
+              "id": "createMember",
+              "type": "create",
+              "inputFields": [
+                "memberName",
+                "email"
+              ],
+              "systemAssignedFields": [
+                "memberId"
+              ]
+            },
+            {
+              "id": "updateMember",
+              "type": "update",
+              "inputFields": [
+                "memberId",
+                "memberName",
+                "email"
+              ],
+              "systemAssignedFields": [
+                "memberId"
+              ]
+            },
+            {
+              "id": "deleteMember",
+              "type": "delete",
+              "inputFields": [
+                "memberId"
+              ]
+            }
+          ],
+          "ui": {
+            "mainScreen": {
+              "name": "MemberMain",
+              "type": "list_screen",
+              "layout": "list_with_detail_actions",
+              "responsive": true
+            },
+            "mainArtifact": "frontend/react/src/pages/member/MemberListPage.jsx"
+          },
+          "backendArtifacts": {
+            "controller": "MemberRestController",
+            "service": "MemberService",
+            "serviceImpl": "MemberServiceImpl",
+            "mapperInterface": "MemberMapper",
+            "vo": "MemberVO",
+            "mapperXml": "MemberMapper.xml",
+            "controllerPath": "src/main/java/egovframework/demo_project/member/web/MemberRestController.java",
+            "servicePath": "src/main/java/egovframework/demo_project/member/service/MemberService.java",
+            "serviceImplPath": "src/main/java/egovframework/demo_project/member/service/impl/MemberServiceImpl.java",
+            "mapperPath": "src/main/java/egovframework/demo_project/member/service/mapper/MemberMapper.java",
+            "voPath": "src/main/java/egovframework/demo_project/member/service/vo/MemberVO.java",
+            "mapperXmlPath": "src/main/resources/egovframework/mapper/member/MemberMapper.xml"
+          },
+          "frontendArtifacts": {
+            "mainPage": "frontend/react/src/pages/member/MemberListPage.jsx",
+            "detailPage": "frontend/react/src/pages/member/MemberDetailPage.jsx",
+            "formPage": "frontend/react/src/pages/member/MemberFormPage.jsx",
+            "apiService": "frontend/react/src/api/services/member.js"
+          },
+          "validationRules": {
+            "primaryPattern": "crud",
+            "formHiddenFields": [
+              "memberId"
+            ],
+            "requiredJavaImports": [],
+            "mainEntryMustBe": "/member"
+          }
+        }
+      }
+    ],
+    "warnings": []
+  },
+  "login_auth": {
+    "project": {
+      "project_root": "/tmp/autopj_ir/demo_project",
+      "project_name": "demo_project",
+      "base_package": "egovframework.demo_project",
+      "backend_mode": "egov_spring",
+      "frontend_mode": "jsp",
+      "database_type": "mysql"
+    },
+    "inputs": {
+      "requirements_text": "로그인 화면, 로그인 처리, 로그아웃 기능 생성",
+      "schema_present": true
+    },
+    "ir_version": "1.0",
+    "generation_policy": {
+      "modifyExistingOnly": true,
+      "relatedFilesOnly": true,
+      "preserveCommonAssets": true,
+      "mergeCommonCss": true
+    },
+    "domains": [
+      {
+        "name": "user_account",
+        "entity_name": "UserAccount",
+        "feature_kind": "auth",
+        "auth_required": true,
+        "source_table": "user_account",
+        "primary_key": "userId",
+        "primary_key_column": "user_id",
+        "pages": [
+          "login"
+        ],
+        "api_endpoints": [
+          "POST /api/auth/login",
+          "POST /api/auth/logout"
+        ],
+        "fields": [
+          {
+            "name": "userId",
+            "column": "user_id",
+            "java_type": "String",
+            "db_type": "VARCHAR(50)",
+            "pk": true,
+            "nullable": false,
+            "searchable": false,
+            "display": false,
+            "role": "business",
+            "editable": null,
+            "visible_in_form": null,
+            "visible_in_detail": null,
+            "visible_in_list": null,
+            "source": "",
+            "default_value": "",
+            "java_import": "",
+            "javaImport": "",
+            "visibleInForm": null,
+            "visibleInDetail": null,
+            "visibleInList": null,
+            "defaultValue": ""
+          },
+          {
+            "name": "password",
+            "column": "password",
+            "java_type": "String",
+            "db_type": "VARCHAR(100)",
+            "pk": false,
+            "nullable": false,
+            "searchable": false,
+            "display": false,
+            "role": "business",
+            "editable": null,
+            "visible_in_form": null,
+            "visible_in_detail": null,
+            "visible_in_list": null,
+            "source": "",
+            "default_value": "",
+            "java_import": "",
+            "javaImport": "",
+            "visibleInForm": null,
+            "visibleInDetail": null,
+            "visibleInList": null,
+            "defaultValue": ""
+          }
+        ],
+        "file_generation_plan": {
+          "backend": [
+            "vo",
+            "service",
+            "service_impl",
+            "controller"
+          ],
+          "frontend": [
+            "login_jsp"
+          ]
+        },
+        "forbidden_artifacts": [
+          "generic_list",
+          "generic_detail",
+          "generic_delete",
+          "generic_crud_mapper_xml_bundle"
+        ],
+        "naming": {
+          "package_base": "egovframework.demo_project.user_account",
+          "web_package": "egovframework.demo_project.user_account.web",
+          "service_package": "egovframework.demo_project.user_account.service",
+          "service_impl_package": "egovframework.demo_project.user_account.service.impl",
+          "mapper_package": "egovframework.demo_project.user_account.service.mapper",
+          "vo_package": "egovframework.demo_project.user_account.service.vo",
+          "entity_name": "UserAccount",
+          "vo_class_name": "UserAccountVO",
+          "mapper_class_name": "UserAccountMapper",
+          "service_class_name": "UserAccountService",
+          "service_impl_class_name": "UserAccountServiceImpl",
+          "controller_class_name": "UserAccountController",
+          "jsp_list_view": "/WEB-INF/views/user_account/user_accountList.jsp",
+          "jsp_detail_view": "/WEB-INF/views/user_account/user_accountDetail.jsp",
+          "jsp_form_view": "/WEB-INF/views/user_account/user_accountForm.jsp",
+          "react_list_page_path": "frontend/react/src/pages/user_account/UserAccountListPage.jsx",
+          "react_detail_page_path": "frontend/react/src/pages/user_account/UserAccountDetailPage.jsx",
+          "react_form_page_path": "frontend/react/src/pages/user_account/UserAccountFormPage.jsx",
+          "react_api_path": "frontend/react/src/api/user_accountApi.js"
+        },
+        "ir": {
+          "domain": {
+            "name": "user_account",
+            "entityName": "UserAccount",
+            "table": "user_account",
+            "displayName": "UserAccount"
+          },
+          "classification": {
+            "primaryPattern": "auth",
+            "secondaryPatterns": [
+              "session"
+            ],
+            "boardLike": false,
+            "authRelated": true
+          },
+          "mainEntry": {
+            "viewType": "login",
+            "route": "/user_account/login.do",
+            "jsp": "/WEB-INF/views/user_account/login.jsp"
+          },
+          "capabilities": [
+            "login_form",
+            "login_submit",
+            "logout"
+          ],
+          "dataModel": {
+            "fields": [
+              {
+                "name": "userId",
+                "column": "user_id",
+                "type": "String",
+                "dbType": "VARCHAR(50)",
+                "pk": true,
+                "nullable": false,
+                "role": "identifier",
+                "editable": false,
+                "visibleInForm": false,
+                "visibleInDetail": true,
+                "visibleInList": false,
+                "searchable": false
+              },
+              {
+                "name": "password",
+                "column": "password",
+                "type": "String",
+                "dbType": "VARCHAR(100)",
+                "pk": false,
+                "nullable": false,
+                "role": "business",
+                "editable": true,
+                "visibleInForm": true,
+                "visibleInDetail": true,
+                "visibleInList": false,
+                "searchable": true
+              }
+            ],
+            "formHiddenFields": [
+              "userId"
+            ],
+            "requiredJavaImports": []
+          },
+          "queries": [
+            {
+              "id": "authenticateUserAccount",
+              "type": "auth",
+              "params": [
+                "userId",
+                "password"
+              ],
+              "returns": "UserAccountVO"
+            }
+          ],
+          "actions": [
+            {
+              "id": "login",
+              "type": "auth",
+              "inputFields": [
+                "userId",
+                "password"
+              ]
+            }
+          ],
+          "ui": {
+            "mainScreen": {
+              "name": "UserAccountLogin",
+              "type": "login_screen",
+              "layout": "single_card",
+              "responsive": true
+            },
+            "mainArtifact": "src/main/webapp/WEB-INF/views/user_account/user_accountList.jsp"
+          },
+          "backendArtifacts": {
+            "controller": "UserAccountController",
+            "service": "UserAccountService",
+            "serviceImpl": "UserAccountServiceImpl",
+            "mapperInterface": "UserAccountMapper",
+            "vo": "UserAccountVO",
+            "mapperXml": "UserAccountMapper.xml",
+            "controllerPath": "src/main/java/egovframework/demo_project/user_account/web/UserAccountController.java",
+            "servicePath": "src/main/java/egovframework/demo_project/user_account/service/UserAccountService.java",
+            "serviceImplPath": "src/main/java/egovframework/demo_project/user_account/service/impl/UserAccountServiceImpl.java",
+            "mapperPath": "src/main/java/egovframework/demo_project/user_account/service/mapper/UserAccountMapper.java",
+            "voPath": "src/main/java/egovframework/demo_project/user_account/service/vo/UserAccountVO.java",
+            "mapperXmlPath": "src/main/resources/egovframework/mapper/user_account/UserAccountMapper.xml"
+          },
+          "frontendArtifacts": {
+            "mainJsp": "src/main/webapp/WEB-INF/views/user_account/user_accountList.jsp",
+            "detailJsp": "src/main/webapp/WEB-INF/views/user_account/user_accountDetail.jsp",
+            "formJsp": "src/main/webapp/WEB-INF/views/user_account/user_accountForm.jsp"
+          },
+          "validationRules": {
+            "primaryPattern": "auth",
+            "formHiddenFields": [
+              "userId"
+            ],
+            "requiredJavaImports": [],
+            "mainEntryMustBe": "/user_account/login.do"
+          }
+        }
+      }
+    ],
+    "warnings": []
+  },
+  "board_crud": {
+    "project": {
+      "project_root": "/tmp/autopj_ir/demo_project",
+      "project_name": "demo_project",
+      "base_package": "egovframework.demo_project",
+      "backend_mode": "egov_spring",
+      "frontend_mode": "react",
+      "database_type": "mysql"
+    },
+    "inputs": {
+      "requirements_text": "게시판 목록/상세/등록 화면과 API 생성",
+      "schema_present": true
+    },
+    "ir_version": "1.0",
+    "generation_policy": {
+      "modifyExistingOnly": true,
+      "relatedFilesOnly": true,
+      "preserveCommonAssets": true,
+      "mergeCommonCss": true
+    },
+    "domains": [
+      {
+        "name": "board",
+        "entity_name": "Board",
+        "feature_kind": "crud",
+        "auth_required": false,
+        "source_table": "board",
+        "primary_key": "boardId",
+        "primary_key_column": "board_id",
+        "pages": [
+          "list",
+          "detail",
+          "form"
+        ],
+        "api_endpoints": [
+          "GET /api/board",
+          "GET /api/board/{id}",
+          "POST /api/board",
+          "PUT /api/board/{id}",
+          "DELETE /api/board/{id}"
+        ],
+        "fields": [
+          {
+            "name": "boardId",
+            "column": "board_id",
+            "java_type": "Long",
+            "db_type": "BIGINT",
+            "pk": true,
+            "nullable": false,
+            "searchable": false,
+            "display": false,
+            "role": "business",
+            "editable": null,
+            "visible_in_form": null,
+            "visible_in_detail": null,
+            "visible_in_list": null,
+            "source": "",
+            "default_value": "",
+            "java_import": "",
+            "javaImport": "",
+            "visibleInForm": null,
+            "visibleInDetail": null,
+            "visibleInList": null,
+            "defaultValue": ""
+          },
+          {
+            "name": "title",
+            "column": "title",
+            "java_type": "String",
+            "db_type": "VARCHAR(200)",
+            "pk": false,
+            "nullable": false,
+            "searchable": true,
+            "display": true,
+            "role": "business",
+            "editable": null,
+            "visible_in_form": null,
+            "visible_in_detail": null,
+            "visible_in_list": null,
+            "source": "",
+            "default_value": "",
+            "java_import": "",
+            "javaImport": "",
+            "visibleInForm": null,
+            "visibleInDetail": null,
+            "visibleInList": null,
+            "defaultValue": ""
+          },
+          {
+            "name": "content",
+            "column": "content",
+            "java_type": "String",
+            "db_type": "TEXT",
+            "pk": false,
+            "nullable": true,
+            "searchable": false,
+            "display": true,
+            "role": "business",
+            "editable": null,
+            "visible_in_form": null,
+            "visible_in_detail": null,
+            "visible_in_list": null,
+            "source": "",
+            "default_value": "",
+            "java_import": "",
+            "javaImport": "",
+            "visibleInForm": null,
+            "visibleInDetail": null,
+            "visibleInList": null,
+            "defaultValue": ""
+          },
+          {
+            "name": "regDate",
+            "column": "reg_date",
+            "java_type": "LocalDateTime",
+            "db_type": "DATETIME",
+            "pk": false,
+            "nullable": true,
+            "searchable": false,
+            "display": false,
+            "role": "business",
+            "editable": null,
+            "visible_in_form": null,
+            "visible_in_detail": null,
+            "visible_in_list": null,
+            "source": "",
+            "default_value": "",
+            "java_import": "",
+            "javaImport": "",
+            "visibleInForm": null,
+            "visibleInDetail": null,
+            "visibleInList": null,
+            "defaultValue": ""
+          }
+        ],
+        "file_generation_plan": {
+          "backend": [
+            "vo",
+            "mapper",
+            "mapper_xml",
+            "service",
+            "service_impl",
+            "controller"
+          ],
+          "frontend": [
+            "page_list",
+            "page_detail",
+            "page_form",
+            "api",
+            "route"
+          ]
+        },
+        "forbidden_artifacts": [],
+        "naming": {
+          "package_base": "egovframework.demo_project.board",
+          "web_package": "egovframework.demo_project.board.web",
+          "service_package": "egovframework.demo_project.board.service",
+          "service_impl_package": "egovframework.demo_project.board.service.impl",
+          "mapper_package": "egovframework.demo_project.board.service.mapper",
+          "vo_package": "egovframework.demo_project.board.service.vo",
+          "entity_name": "Board",
+          "vo_class_name": "BoardVO",
+          "mapper_class_name": "BoardMapper",
+          "service_class_name": "BoardService",
+          "service_impl_class_name": "BoardServiceImpl",
+          "controller_class_name": "BoardRestController",
+          "jsp_list_view": "/WEB-INF/views/board/boardList.jsp",
+          "jsp_detail_view": "/WEB-INF/views/board/boardDetail.jsp",
+          "jsp_form_view": "/WEB-INF/views/board/boardForm.jsp",
+          "react_list_page_path": "frontend/react/src/pages/board/BoardListPage.jsx",
+          "react_detail_page_path": "frontend/react/src/pages/board/BoardDetailPage.jsx",
+          "react_form_page_path": "frontend/react/src/pages/board/BoardFormPage.jsx",
+          "react_api_path": "frontend/react/src/api/boardApi.js"
+        },
+        "ir": {
+          "domain": {
+            "name": "board",
+            "entityName": "Board",
+            "table": "board",
+            "displayName": "Board"
+          },
+          "classification": {
+            "primaryPattern": "crud",
+            "secondaryPatterns": [
+              "list",
+              "detail",
+              "form"
+            ],
+            "boardLike": true,
+            "authRelated": false
+          },
+          "mainEntry": {
+            "viewType": "list",
+            "route": "/board",
+            "page": "frontend/react/src/pages/board/BoardListPage.jsx"
+          },
+          "capabilities": [
+            "list_view",
+            "detail_view",
+            "create",
+            "update",
+            "delete",
+            "search_filter"
+          ],
+          "dataModel": {
+            "fields": [
+              {
+                "name": "boardId",
+                "column": "board_id",
+                "type": "Long",
+                "dbType": "BIGINT",
+                "pk": true,
+                "nullable": false,
+                "role": "identifier",
+                "editable": false,
+                "visibleInForm": false,
+                "visibleInDetail": true,
+                "visibleInList": false,
+                "searchable": false
+              },
+              {
+                "name": "title",
+                "column": "title",
+                "type": "String",
+                "dbType": "VARCHAR(200)",
+                "pk": false,
+                "nullable": false,
+                "role": "business",
+                "editable": true,
+                "visibleInForm": true,
+                "visibleInDetail": true,
+                "visibleInList": true,
+                "searchable": true
+              },
+              {
+                "name": "content",
+                "column": "content",
+                "type": "String",
+                "dbType": "TEXT",
+                "pk": false,
+                "nullable": true,
+                "role": "business",
+                "editable": true,
+                "visibleInForm": true,
+                "visibleInDetail": true,
+                "visibleInList": true,
+                "searchable": true
+              },
+              {
+                "name": "regDate",
+                "column": "reg_date",
+                "type": "LocalDateTime",
+                "dbType": "DATETIME",
+                "pk": false,
+                "nullable": true,
+                "role": "business",
+                "editable": true,
+                "visibleInForm": true,
+                "visibleInDetail": true,
+                "visibleInList": false,
+                "searchable": true,
+                "javaImport": "java.time.LocalDateTime"
+              }
+            ],
+            "formHiddenFields": [
+              "boardId"
+            ],
+            "requiredJavaImports": [
+              "java.time.LocalDateTime"
+            ]
+          },
+          "queries": [
+            {
+              "id": "selectBoardList",
+              "type": "list",
+              "params": [],
+              "returns": "BoardVO[]"
+            },
+            {
+              "id": "selectBoard",
+              "type": "detail",
+              "params": [
+                "boardId"
+              ],
+              "returns": "BoardVO"
+            }
+          ],
+          "actions": [
+            {
+              "id": "createBoard",
+              "type": "create",
+              "inputFields": [
+                "title",
+                "content",
+                "regDate"
+              ],
+              "systemAssignedFields": [
+                "boardId"
+              ]
+            },
+            {
+              "id": "updateBoard",
+              "type": "update",
+              "inputFields": [
+                "boardId",
+                "title",
+                "content",
+                "regDate"
+              ],
+              "systemAssignedFields": [
+                "boardId"
+              ]
+            },
+            {
+              "id": "deleteBoard",
+              "type": "delete",
+              "inputFields": [
+                "boardId"
+              ]
+            }
+          ],
+          "ui": {
+            "mainScreen": {
+              "name": "BoardMain",
+              "type": "list_screen",
+              "layout": "list_with_detail_actions",
+              "responsive": true
+            },
+            "mainArtifact": "frontend/react/src/pages/board/BoardListPage.jsx"
+          },
+          "backendArtifacts": {
+            "controller": "BoardRestController",
+            "service": "BoardService",
+            "serviceImpl": "BoardServiceImpl",
+            "mapperInterface": "BoardMapper",
+            "vo": "BoardVO",
+            "mapperXml": "BoardMapper.xml",
+            "controllerPath": "src/main/java/egovframework/demo_project/board/web/BoardRestController.java",
+            "servicePath": "src/main/java/egovframework/demo_project/board/service/BoardService.java",
+            "serviceImplPath": "src/main/java/egovframework/demo_project/board/service/impl/BoardServiceImpl.java",
+            "mapperPath": "src/main/java/egovframework/demo_project/board/service/mapper/BoardMapper.java",
+            "voPath": "src/main/java/egovframework/demo_project/board/service/vo/BoardVO.java",
+            "mapperXmlPath": "src/main/resources/egovframework/mapper/board/BoardMapper.xml"
+          },
+          "frontendArtifacts": {
+            "mainPage": "frontend/react/src/pages/board/BoardListPage.jsx",
+            "detailPage": "frontend/react/src/pages/board/BoardDetailPage.jsx",
+            "formPage": "frontend/react/src/pages/board/BoardFormPage.jsx",
+            "apiService": "frontend/react/src/api/services/board.js"
+          },
+          "validationRules": {
+            "primaryPattern": "crud",
+            "formHiddenFields": [
+              "boardId"
+            ],
+            "requiredJavaImports": [
+              "java.time.LocalDateTime"
+            ],
+            "mainEntryMustBe": "/board"
+          }
+        }
+      }
+    ],
+    "warnings": []
+  }
+}

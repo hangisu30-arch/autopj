@@ -1,0 +1,16 @@
+Applied patches:
+- Added JSP-VO property mismatch static validator and auto-repair.
+- Hardened cert login JSP generation to avoid missing userName binding when VO has no name field.
+- Preserved inferred reservation/schedule fields in safe schedule schema repair without forcing default remark injection.
+- Added WebMvcConfig auth auxiliary route exclusions for integration/cert/JWT login flows.
+- Added regression tests for cert login JSP mismatch detection/repair and generation guard.
+
+Validated tests:
+- tests/test_jsp_vo_property_contract_guard.py
+- tests/test_reservation_calendar_property_mismatch_repair.py
+- tests/test_auth_integration_options.py
+- tests/test_generated_project_validation_pipeline.py
+- tests/test_generated_project_generic_repairs.py
+- tests/test_runtime_smoke_pipeline.py
+- tests/test_room_search_and_edit_timeout_repair.py
+- tests/test_calendar_timeout_smoke_repair.py

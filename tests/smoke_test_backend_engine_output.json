@@ -1,0 +1,90 @@
+{
+  "project_name": "autotest01",
+  "base_package": "egovframework.autotest01",
+  "backend_mode": "egov_spring",
+  "frontend_mode": "react",
+  "database_type": "mysql",
+  "template_managed_files": [
+    "pom.xml",
+    "src/main/resources/application.properties"
+  ],
+  "domains": [
+    {
+      "domain_name": "member",
+      "entity_name": "Member",
+      "feature_kind": "crud",
+      "controller_mode": "rest_controller",
+      "source_table": "member",
+      "primary_key": "memberId",
+      "primary_key_column": "member_id",
+      "base_package": "egovframework.autotest01",
+      "artifacts": [
+        {
+          "artifact_type": "vo",
+          "target_path": "src/main/java/egovframework/autotest01/member/service/vo/MemberVO.java",
+          "purpose": "Member VO",
+          "class_name": "MemberVO",
+          "package": "egovframework.autotest01.member.service.vo",
+          "controller_mode": "",
+          "required": true
+        },
+        {
+          "artifact_type": "mapper",
+          "target_path": "src/main/java/egovframework/autotest01/member/service/mapper/MemberMapper.java",
+          "purpose": "Member MyBatis mapper interface",
+          "class_name": "MemberMapper",
+          "package": "egovframework.autotest01.member.service.mapper",
+          "controller_mode": "",
+          "required": true
+        },
+        {
+          "artifact_type": "mapper_xml",
+          "target_path": "src/main/resources/egovframework/mapper/member/MemberMapper.xml",
+          "purpose": "Member MyBatis mapper XML",
+          "class_name": "",
+          "package": "",
+          "controller_mode": "",
+          "required": true
+        },
+        {
+          "artifact_type": "service",
+          "target_path": "src/main/java/egovframework/autotest01/member/service/MemberService.java",
+          "purpose": "Member service interface",
+          "class_name": "MemberService",
+          "package": "egovframework.autotest01.member.service",
+          "controller_mode": "",
+          "required": true
+        },
+        {
+          "artifact_type": "service_impl",
+          "target_path": "src/main/java/egovframework/autotest01/member/service/impl/MemberServiceImpl.java",
+          "purpose": "Member service implementation",
+          "class_name": "MemberServiceImpl",
+          "package": "egovframework.autotest01.member.service.impl",
+          "controller_mode": "",
+          "required": true
+        },
+        {
+          "artifact_type": "controller",
+          "target_path": "src/main/java/egovframework/autotest01/member/web/MemberRestController.java",
+          "purpose": "Member rest_controller backend controller",
+          "class_name": "MemberRestController",
+          "package": "egovframework.autotest01.member.web",
+          "controller_mode": "rest_controller",
+          "required": true
+        },
+        {
+          "artifact_type": "mybatis_config",
+          "target_path": "src/main/java/egovframework/autotest01/member/config/MyBatisConfig.java",
+          "purpose": "MyBatis mapper scan configuration",
+          "class_name": "MyBatisConfig",
+          "package": "egovframework.autotest01.member.config",
+          "controller_mode": "",
+          "required": true
+        }
+      ],
+      "forbidden_methods": []
+    }
+  ],
+  "warnings": []
+}

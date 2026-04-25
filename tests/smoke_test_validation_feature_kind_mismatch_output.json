@@ -1,0 +1,111 @@
+{
+  "report": {
+    "ok": false,
+    "frontend_key": "jsp",
+    "checks": [
+      {
+        "name": "analysis",
+        "ok": false,
+        "errors": [
+          "analysis_result missing ir_version",
+          "member: missing domain.ir block",
+          "member: feature_kind upload conflicts with CRUD pages/artifacts"
+        ]
+      },
+      {
+        "name": "backend_plan",
+        "ok": false,
+        "errors": [
+          "member: feature_kind upload conflicts with generic CRUD backend artifacts",
+          "member: MyBatisConfig must use common config path=src/main/java/egovframework/fulljsp/config/MyBatisConfig.java, got=src/main/java/egovframework/fulljsp/member/config/MyBatisConfig.java"
+        ]
+      },
+      {
+        "name": "jsp_plan",
+        "ok": false,
+        "errors": [
+          "member: feature_kind upload conflicts with CRUD JSP views"
+        ]
+      }
+    ],
+    "errors": [
+      "analysis_result missing ir_version",
+      "member: missing domain.ir block",
+      "member: feature_kind upload conflicts with CRUD pages/artifacts",
+      "member: feature_kind upload conflicts with generic CRUD backend artifacts",
+      "member: MyBatisConfig must use common config path=src/main/java/egovframework/fulljsp/config/MyBatisConfig.java, got=src/main/java/egovframework/fulljsp/member/config/MyBatisConfig.java",
+      "member: feature_kind upload conflicts with CRUD JSP views"
+    ],
+    "classified_errors": [
+      {
+        "code": "unknown",
+        "message": "analysis_result missing ir_version",
+        "severity": "error",
+        "target": "general",
+        "repairable": true
+      },
+      {
+        "code": "unknown",
+        "message": "member: missing domain.ir block",
+        "severity": "error",
+        "target": "general",
+        "repairable": true
+      },
+      {
+        "code": "feature_kind_mismatch",
+        "message": "member: feature_kind upload conflicts with CRUD pages/artifacts",
+        "severity": "error",
+        "target": "analysis",
+        "repairable": true
+      },
+      {
+        "code": "feature_kind_mismatch",
+        "message": "member: feature_kind upload conflicts with generic CRUD backend artifacts",
+        "severity": "error",
+        "target": "analysis",
+        "repairable": true
+      },
+      {
+        "code": "unknown",
+        "message": "member: MyBatisConfig must use common config path=src/main/java/egovframework/fulljsp/config/MyBatisConfig.java, got=src/main/java/egovframework/fulljsp/member/config/MyBatisConfig.java",
+        "severity": "error",
+        "target": "general",
+        "repairable": true
+      },
+      {
+        "code": "feature_kind_mismatch",
+        "message": "member: feature_kind upload conflicts with CRUD JSP views",
+        "severity": "error",
+        "target": "analysis",
+        "repairable": true
+      }
+    ],
+    "repairable_error_count": 6,
+    "non_repairable_error_count": 0,
+    "summary": {
+      "total_checks": 3,
+      "failed_checks": 3,
+      "total_errors": 6
+    }
+  },
+  "repair": {
+    "ok": false,
+    "repair_mode": "targeted",
+    "actions": [
+      {
+        "action_type": "recompute_feature_kind_and_revalidate",
+        "target": "analysis",
+        "reason": "member: feature_kind upload conflicts with CRUD pages/artifacts",
+        "suggested_files": [
+          "app/engine/analysis/domain_classifier.py",
+          "app/engine/analysis/artifact_planner.py"
+        ]
+      }
+    ],
+    "notes": [
+      "Prefer targeted regeneration over full regeneration.",
+      "Auth/login domains must not expand into generic CRUD during repair.",
+      "Keep backend/frontend roots separated during repair."
+    ]
+  }
+}

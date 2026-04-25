@@ -1,0 +1,6 @@
+execution_core/builtin_crud.py
+app/ui/fallback_builder.py
+app/validation/generated_project_validator.py
+app/validation/project_auto_repair.py
+app/validation/runtime_smoke.py
+tests/test_signup_login_route_conflict_regression.py

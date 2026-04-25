@@ -1,0 +1,76 @@
+{
+  "project": {
+    "project_root": "C:\\eGovFrameDev-4.3.1-64bit\\workspace-egov\\fulljsp",
+    "project_name": "fulljsp",
+    "base_package": "egovframework.fulljsp",
+    "backend_mode": "egov_spring",
+    "frontend_mode": "jsp",
+    "database_type": "mysql"
+  },
+  "inputs": {
+    "requirements_text": "회원 관리 목록/상세/등록/수정/삭제 화면과 기능 생성.\n회원 엔티티 컬럼은 member_id, member_name, email 이다.\nmember_id 는 기본키이다.\nJSP 기반 화면을 생성하고, eGovFrame MVC 패턴에 맞춰 Controller, Service, Mapper, Mapper.xml, VO, JSP 파일을 함께 생성한다.\n목록, 상세, 등록/수정 form 흐름이 연결되어야 한다.\n로그인/인증 기능으로 해석하지 말고 일반 CRUD로 처리한다.",
+    "schema_present": false
+  },
+  "domains": [
+    {
+      "name": "member",
+      "entity_name": "Member",
+      "feature_kind": "upload",
+      "auth_required": false,
+      "source_table": "member",
+      "primary_key": "",
+      "primary_key_column": "",
+      "pages": [
+        "list",
+        "detail",
+        "form"
+      ],
+      "api_endpoints": [
+        "GET /api/member",
+        "GET /api/member/{id}",
+        "POST /api/member",
+        "PUT /api/member/{id}",
+        "DELETE /api/member/{id}"
+      ],
+      "fields": [],
+      "file_generation_plan": {
+        "backend": [
+          "vo",
+          "mapper",
+          "mapper_xml",
+          "service",
+          "service_impl",
+          "controller"
+        ],
+        "frontend": [
+          "list_jsp",
+          "detail_jsp",
+          "form_jsp"
+        ]
+      },
+      "forbidden_artifacts": [],
+      "naming": {
+        "package_base": "egovframework.fulljsp.member",
+        "web_package": "egovframework.fulljsp.member.web",
+        "service_package": "egovframework.fulljsp.member.service",
+        "service_impl_package": "egovframework.fulljsp.member.service.impl",
+        "mapper_package": "egovframework.fulljsp.member.service.mapper",
+        "vo_package": "egovframework.fulljsp.member.service.vo",
+        "entity_name": "Member",
+        "vo_class_name": "MemberVO",
+        "mapper_class_name": "MemberMapper",
+        "service_class_name": "MemberService",
+        "service_impl_class_name": "MemberServiceImpl",
+        "controller_class_name": "MemberController",
+        "jsp_list_view": "/WEB-INF/views/member/memberList.jsp",
+        "jsp_detail_view": "/WEB-INF/views/member/memberDetail.jsp",
+        "jsp_form_view": "/WEB-INF/views/member/memberForm.jsp",
+        "react_list_page_path": "frontend/react/src/pages/member/MemberListPage.jsx",
+        "react_detail_page_path": "frontend/react/src/pages/member/MemberDetailPage.jsx",
+        "react_form_page_path": "frontend/react/src/pages/member/MemberFormPage.jsx",
+        "react_api_path": "frontend/react/src/api/memberApi.js"
+      }
+    }
+  ],
+  "warnings": []
+}

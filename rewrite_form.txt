@@ -1,0 +1,86 @@
+def _rewrite_form_jsp_from_schema(project_root: Path, rel_path: str, schema: Any) -> bool:
+    path = project_root / rel_path
+    if not path.exists() or not str(rel_path).lower().endswith('form.jsp'):
+        return False
+    body = path.read_text(encoding='utf-8')
+    if '<form' not in body.lower():
+        return False
+    routes = getattr(schema, 'routes', None) or {}
+    action = str(routes.get('save') or routes.get('form') or '/')
+    cancel = str(routes.get('calendar') or routes.get('list') or '/')
+    delete_route = str(routes.get('delete') or '')
+    fields = list(getattr(schema, 'fields', []) or [])
+    editable = []
+    hidden = []
+    id_prop = str(getattr(schema, 'id_prop', '') or '')
+    id_type = ''
+    for prop, col, jt in fields:
+        if prop == id_prop:
+            id_type = jt
+        col_low = str(col or '').lower()
+        if 'created_at' in col_low or 'updated_at' in col_low:
+            continue
+        if _is_hidden_form_helper_field(prop, col):
+            continue
+        editable.append((prop, jt))
+    if id_prop and id_type in {'Long', 'long', 'Integer', 'int'} and (str(id_prop).lower().endswith('id') or str(getattr(schema, 'id_column', '') or '').lower().endswith('_id') or str(id_prop).lower() == 'id'):
+        editable = [(prop, jt) for prop, jt in editable if prop != id_prop]
+        hidden.append(f"      <input type=\"hidden\" name=\"{id_prop}\" value=\"<c:out value='${{item.{id_prop}}}'/>\"/>")
+    field_markup = '\n'.join(_render_form_field_markup(prop, jt) for prop, jt in editable)
+    hidden_block = '\n'.join(hidden)
+    delete_form = ''
+    if delete_route and id_prop:
+        delete_form = f'''      <c:if test="${{not empty item and not empty item.{id_prop}}}">
+        <button type="submit" formaction="<c:url value='{delete_route}'/>" formmethod="post" onclick="return confirm('삭제하시겠습니까?');">삭제</button>
+      </c:if>'''
+    entity = str(getattr(schema, 'entity', '') or 'Item')
+    entity_label = _friendly_nav_label(entity)
+    page = f'''<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{entity_label} 등록/수정</title>
+</head>
+<body>
+<%@ include file="/WEB-INF/views/common/header.jsp" %>
+<%@ include file="/WEB-INF/views/common/leftNav.jsp" %>
+<section class="page-shell autopj-form-page">
+  <div class="autopj-form-hero page-card">
+    <div>
+      <p class="autopj-eyebrow">{entity_label}</p>
+      <h2 class="autopj-form-title">{entity_label} 등록/수정</h2>
+      <p class="autopj-form-subtitle">입력값을 이해하기 쉬운 섹션 구조로 작성합니다.</p>
+    </div>
+    <div class="autopj-form-hero__meta">
+      <span class="badge">입력 검토</span>
+      <span class="autopj-helper">날짜/시간 항목은 달력 또는 일시 선택 컴포넌트로 입력합니다.</span>
+    </div>
+  </div>
+  <form class="autopj-form-card form-card" action="<c:url value='{action}'/>" method="post">
+{hidden_block}
+    <div class="autopj-form-section-header">
+      <div>
+        <h3 class="autopj-section-title">기본 정보</h3>
+        <p class="autopj-section-subtitle">필수 항목과 보조 항목을 구분해 입력합니다.</p>
+      </div>
+    </div>
+    <div class="autopj-form-grid">
+{field_markup}
+    </div>
+    <div class="autopj-form-actions">
+      <button type="submit">저장</button>
+{delete_form}
+      <a class="btn btn-secondary" href="<c:url value='{cancel}'/>">취소</a>
+    </div>
+  </form>
+</section>
+</body>
+</html>
+'''
+    if body == page:
+        return False
+    path.write_text(page, encoding='utf-8')
+    return True

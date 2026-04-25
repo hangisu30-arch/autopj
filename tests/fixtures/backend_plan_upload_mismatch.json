@@ -1,0 +1,90 @@
+{
+  "project_name": "fulljsp",
+  "base_package": "egovframework.fulljsp",
+  "backend_mode": "egov_spring",
+  "frontend_mode": "jsp",
+  "database_type": "mysql",
+  "template_managed_files": [
+    "pom.xml",
+    "src/main/resources/application.properties"
+  ],
+  "domains": [
+    {
+      "domain_name": "member",
+      "entity_name": "Member",
+      "feature_kind": "upload",
+      "controller_mode": "mvc_controller",
+      "source_table": "member",
+      "primary_key": "",
+      "primary_key_column": "",
+      "base_package": "egovframework.fulljsp",
+      "artifacts": [
+        {
+          "artifact_type": "vo",
+          "target_path": "src/main/java/egovframework/fulljsp/member/service/vo/MemberVO.java",
+          "purpose": "Member VO",
+          "class_name": "MemberVO",
+          "package": "egovframework.fulljsp.member.service.vo",
+          "controller_mode": "",
+          "required": true
+        },
+        {
+          "artifact_type": "mapper",
+          "target_path": "src/main/java/egovframework/fulljsp/member/service/mapper/MemberMapper.java",
+          "purpose": "Member MyBatis mapper interface",
+          "class_name": "MemberMapper",
+          "package": "egovframework.fulljsp.member.service.mapper",
+          "controller_mode": "",
+          "required": true
+        },
+        {
+          "artifact_type": "mapper_xml",
+          "target_path": "src/main/resources/egovframework/mapper/member/MemberMapper.xml",
+          "purpose": "Member MyBatis mapper XML",
+          "class_name": "",
+          "package": "",
+          "controller_mode": "",
+          "required": true
+        },
+        {
+          "artifact_type": "service",
+          "target_path": "src/main/java/egovframework/fulljsp/member/service/MemberService.java",
+          "purpose": "Member service interface",
+          "class_name": "MemberService",
+          "package": "egovframework.fulljsp.member.service",
+          "controller_mode": "",
+          "required": true
+        },
+        {
+          "artifact_type": "service_impl",
+          "target_path": "src/main/java/egovframework/fulljsp/member/service/impl/MemberServiceImpl.java",
+          "purpose": "Member service implementation",
+          "class_name": "MemberServiceImpl",
+          "package": "egovframework.fulljsp.member.service.impl",
+          "controller_mode": "",
+          "required": true
+        },
+        {
+          "artifact_type": "controller",
+          "target_path": "src/main/java/egovframework/fulljsp/member/web/MemberController.java",
+          "purpose": "Member mvc_controller backend controller",
+          "class_name": "MemberController",
+          "package": "egovframework.fulljsp.member.web",
+          "controller_mode": "mvc_controller",
+          "required": true
+        },
+        {
+          "artifact_type": "mybatis_config",
+          "target_path": "src/main/java/egovframework/fulljsp/member/config/MyBatisConfig.java",
+          "purpose": "MyBatis mapper scan configuration",
+          "class_name": "MyBatisConfig",
+          "package": "egovframework.fulljsp.member.config",
+          "controller_mode": "",
+          "required": true
+        }
+      ],
+      "forbidden_methods": []
+    }
+  ],
+  "warnings": []
+}

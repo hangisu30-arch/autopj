@@ -1,0 +1,44 @@
+{
+  "project_name": "fulljsp",
+  "base_package": "egovframework.fulljsp",
+  "frontend_mode": "jsp",
+  "view_root": "src/main/webapp/WEB-INF/views",
+  "domains": [
+    {
+      "domain_name": "member",
+      "entity_name": "Member",
+      "feature_kind": "upload",
+      "controller_class_name": "MemberController",
+      "controller_package": "egovframework.fulljsp.member.web",
+      "source_table": "member",
+      "primary_key": "",
+      "model_attribute_name": "member",
+      "base_view_dir": "src/main/webapp/WEB-INF/views/member",
+      "views": [
+        {
+          "artifact_type": "list_jsp",
+          "target_path": "src/main/webapp/WEB-INF/views/member/memberList.jsp",
+          "view_name": "member/memberList",
+          "purpose": "Member list page",
+          "required": true
+        },
+        {
+          "artifact_type": "detail_jsp",
+          "target_path": "src/main/webapp/WEB-INF/views/member/memberDetail.jsp",
+          "view_name": "member/memberDetail",
+          "purpose": "Member detail page",
+          "required": true
+        },
+        {
+          "artifact_type": "form_jsp",
+          "target_path": "src/main/webapp/WEB-INF/views/member/memberForm.jsp",
+          "view_name": "member/memberForm",
+          "purpose": "Member create/update form page",
+          "required": true
+        }
+      ],
+      "forbidden_views": []
+    }
+  ],
+  "warnings": []
+}

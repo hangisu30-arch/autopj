@@ -1,0 +1,114 @@
+def _rewrite_list_jsp_from_schema(project_root: Path, rel_path: str, schema: Any) -> bool:
+    path = project_root / rel_path
+    if not path.exists() or not str(rel_path).lower().endswith('list.jsp'):
+        return False
+    routes = getattr(schema, 'routes', None) or {}
+    form = str(routes.get('form') or '')
+    detail = str(routes.get('detail') or '')
+    delete_route = str(routes.get('delete') or '')
+    fields = list(getattr(schema, 'fields', []) or [])
+    id_prop = str(getattr(schema, 'id_prop', '') or 'id')
+    entity = str(getattr(schema, 'entity', '') or 'Item')
+    entity_label = _friendly_nav_label(entity)
+    visible_fields: List[Tuple[str, str, str]] = []
+    for prop, col, jt in fields:
+        if prop == id_prop:
+            continue
+        if _is_hidden_form_helper_field(prop, col):
+            continue
+        if not _is_valid_java_identifier(prop) or not _is_valid_column_identifier(col):
+            continue
+        visible_fields.append((prop, col, jt))
+    visible_fields = visible_fields[:5]
+    header_cells = ''.join(f'<th>{_autopj_field_label(prop)}</th>' for prop, _col, _jt in visible_fields)
+    body_cells_parts: List[str] = []
+    for prop, col, jt in visible_fields:
+        if _autopj_is_date_java_type(jt) and not _autopj_is_date_only_name(prop, col):
+            value_markup = f'<span data-autopj-display="datetime"><c:out value="${{row.{prop}}}"/></span>'
+        elif _autopj_is_date_java_type(jt) and _autopj_is_date_only_name(prop, col):
+            value_markup = f'<span data-autopj-display="date"><c:out value="${{row.{prop}}}"/></span>'
+        else:
+            value_markup = f'<c:out value="${{row.{prop}}}"/>'
+        body_cells_parts.append(f'                  <td>{value_markup}</td>')
+    body_cells = '\n'.join(body_cells_parts) if body_cells_parts else '                  <td><span class="helper-text">-</span></td>'
+    create_link = f"<a class=\"btn\" href=\"<c:url value='{form}' />\">등록</a>" if form else ""
+    id_link = f'<c:out value="${{row.{id_prop}}}"/>'
+    if detail:
+        id_link = f"<a href=\"<c:url value='{detail}' />?{id_prop}=${{row.{id_prop}}}\"><c:out value=\"${{row.{id_prop}}}\"/></a>"
+    actions: List[str] = []
+    if detail:
+        actions.append(f"<a class=\"btn btn-light\" href=\"<c:url value='{detail}' />?{id_prop}=${{row.{id_prop}}}\">상세</a>")
+    if form:
+        actions.append(f"<a class=\"btn btn-light\" href=\"<c:url value='{form}' />?{id_prop}=${{row.{id_prop}}}\">수정</a>")
+    if delete_route:
+        actions.append(f'''<form action="<c:url value='{delete_route}' />" method="post" style="display:inline-flex;margin:0;">
+                      <input type="hidden" name="{id_prop}" value="${{row.{id_prop}}}"/>
+                      <button type="submit" onclick="return confirm('삭제하시겠습니까?');">삭제</button>
+                    </form>''')
+    actions_block = '\n                    '.join(actions)
+    page = f'''<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{entity_label} 목록</title>
+</head>
+<body>
+<%@ include file="/WEB-INF/views/common/header.jsp" %>
+<%@ include file="/WEB-INF/views/common/leftNav.jsp" %>
+<section class="page-shell">
+  <div class="page-card autopj-form-hero">
+    <div>
+      <p class="autopj-eyebrow">{entity_label}</p>
+      <h2 class="autopj-form-title">{entity_label} 목록</h2>
+      <p class="autopj-form-subtitle">등록된 데이터를 표 형식으로 확인하고 상세·수정 작업으로 이동합니다.</p>
+    </div>
+    <div class="action-bar">{create_link}</div>
+  </div>
+  <div class="page-card" style="padding:22px 24px;">
+    <div class="list-toolbar" style="margin-bottom:16px;">
+      <div class="helper-text">조회 결과를 확인하고 필요한 항목으로 이동하세요.</div>
+    </div>
+    <c:choose>
+      <c:when test="${{not empty list}}">
+        <div class="table-wrap">
+          <table class="data-table autopj-data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                {header_cells}
+                <th>작업</th>
+              </tr>
+            </thead>
+            <tbody>
+              <c:forEach var="row" items="${{list}}">
+                <tr>
+                  <td>{id_link}</td>
+{body_cells}
+                  <td>
+                    <div class="action-bar">
+                    {actions_block}
+                    </div>
+                  </td>
+                </tr>
+              </c:forEach>
+            </tbody>
+          </table>
+        </div>
+      </c:when>
+      <c:otherwise>
+        <div class="empty-state">등록된 데이터가 없습니다.</div>
+      </c:otherwise>
+    </c:choose>
+  </div>
+</section>
+</body>
+</html>
+'''
+    original = path.read_text(encoding='utf-8')
+    if original == page:
+        return False
+    path.write_text(page, encoding='utf-8')
+    return True

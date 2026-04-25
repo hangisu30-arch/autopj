@@ -1,0 +1,3 @@
+# Optional dependencies:
+# - mysql-connector-python (only if you use --db-apply)
+mysql-connector-python

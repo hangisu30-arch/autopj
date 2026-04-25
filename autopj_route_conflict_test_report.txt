@@ -1,0 +1,19 @@
+Patched files
+- execution_core/builtin_crud.py
+- app/ui/fallback_builder.py
+- app/validation/generated_project_validator.py
+- app/validation/project_auto_repair.py
+- app/validation/runtime_smoke.py
+- tests/test_signup_login_route_conflict_regression.py
+
+Validation
+- python -m py_compile execution_core/builtin_crud.py app/ui/fallback_builder.py app/validation/generated_project_validator.py app/validation/project_auto_repair.py app/validation/runtime_smoke.py
+  result: ok
+
+Targeted regression suite
+- pytest -q tests/test_signup_login_route_conflict_regression.py tests/test_signup_management_generation_regression.py tests/test_runtime_smoke_pipeline.py
+  result: 22 passed
+
+Broader auth/signup/validator/runtime suite
+- pytest -q tests/test_user_auth_misclassification_regression.py tests/test_auth_egov_login_flow.py tests/test_auth_integration_options.py tests/test_generated_project_validation_pipeline.py tests/test_jsp_vo_property_contract_guard.py tests/test_runtime_smoke_pipeline.py tests/test_signup_management_generation_regression.py tests/test_signup_login_route_conflict_regression.py
+  result: 40 passed

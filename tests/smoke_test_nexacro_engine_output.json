@@ -1,0 +1,86 @@
+{
+  "project_name": "autotest01",
+  "frontend_mode": "nexacro",
+  "app_root": "frontend/nexacro",
+  "service_url_map_path": "frontend/nexacro/services/service-url-map.json",
+  "application_config_path": "frontend/nexacro/Application_Desktop.xadl",
+  "environment_path": "frontend/nexacro/_extlib_/environment.xml",
+  "scaffold_files": [
+    "frontend/nexacro/Application_Desktop.xadl",
+    "frontend/nexacro/frame/MainFrame.xfdl",
+    "frontend/nexacro/frame/LeftFrame.xfdl",
+    "frontend/nexacro/frame/WorkFrame.xfdl",
+    "frontend/nexacro/services/service-url-map.json",
+    "frontend/nexacro/_extlib_/environment.xml"
+  ],
+  "domains": [
+    {
+      "domain_name": "member",
+      "entity_name": "Member",
+      "feature_kind": "crud",
+      "api_prefix": "/api/member",
+      "form_dir": "frontend/nexacro/member",
+      "service_script_path": "frontend/nexacro/member/MemberService.xjs",
+      "dataset_prefix": "dsMember",
+      "transaction_service_id": "member.service",
+      "artifacts": [
+        {
+          "artifact_type": "list_form",
+          "target_path": "frontend/nexacro/member/MemberList.xfdl",
+          "purpose": "Member list form",
+          "dataset_name": "dsMemberList",
+          "service_id": "member.list",
+          "route_hint": "/member",
+          "required": true
+        },
+        {
+          "artifact_type": "detail_form",
+          "target_path": "frontend/nexacro/member/MemberDetail.xfdl",
+          "purpose": "Member detail form",
+          "dataset_name": "dsMemberDetail",
+          "service_id": "member.detail",
+          "route_hint": "/member/detail",
+          "required": true
+        },
+        {
+          "artifact_type": "edit_form",
+          "target_path": "frontend/nexacro/member/MemberForm.xfdl",
+          "purpose": "Member create and edit form",
+          "dataset_name": "dsMemberForm",
+          "service_id": "member.save",
+          "route_hint": "/member/form",
+          "required": true
+        },
+        {
+          "artifact_type": "transaction_script",
+          "target_path": "frontend/nexacro/member/MemberService.xjs",
+          "purpose": "Member transaction wrapper script",
+          "dataset_name": "dsMemberForm",
+          "service_id": "member.service",
+          "route_hint": "",
+          "required": true
+        },
+        {
+          "artifact_type": "dataset_schema",
+          "target_path": "frontend/nexacro/member/MemberDataset.json",
+          "purpose": "Member dataset metadata from schema",
+          "dataset_name": "dsMemberForm",
+          "service_id": "member.service",
+          "route_hint": "",
+          "required": true
+        },
+        {
+          "artifact_type": "dataset_columns",
+          "target_path": "frontend/nexacro/member/MemberColumns.json",
+          "purpose": "Member dataset columns and pk=memberId",
+          "dataset_name": "dsMemberForm",
+          "service_id": "member.service",
+          "route_hint": "",
+          "required": true
+        }
+      ],
+      "forbidden_artifacts": []
+    }
+  ],
+  "warnings": []
+}
