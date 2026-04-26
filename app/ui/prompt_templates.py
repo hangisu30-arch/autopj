@@ -295,6 +295,8 @@ def _backend_task_block(cfg: ProjectConfig) -> str:
 - 사용자가 명시한 컬럼명과 comment 는 반드시 실제 DB 물리 테이블에 반영하고, CRUD/UI/API/Mapper/VO 는 반영된 컬럼 계약을 기준으로 생성한다.
 - 테이블에 대한 COMMENT 구문은 절대로 외부에 단독으로 작성하지 말고, 반드시 `CREATE TABLE` 문장의 닫는 괄호 `)` 바로 뒤에 이어서 작성하세요. (예: `... ) COMMENT='회원테이블';`)
 - 초기 데이터를 삽입하는 `INSERT INTO` 문의 컬럼명과 데이터 개수는 반드시 직전에 정의한 `CREATE TABLE`의 컬럼명과 100% 정확하게 일치해야 합니다. 테이블에 없는 컬럼(예: phone 등)을 INSERT 문에 임의로 추가하지 마세요.
+- 단일 소스의 진실(Single Source of Truth): 프로젝트에 생성된 모든 MyBatis Mapper XML (예: AdminMemberMapper, JoinMapper 등)에서 호출하는 `tb_` 로 시작하는 모든 테이블은 반드시 `schema.sql` 파일 내에 `CREATE TABLE` 문으로 작성되어야 합니다.
+- Mapper에는 존재하지만 schema.sql에 테이블이 누락되면 서버가 즉시 다운되므로, 절대로 테이블 생성을 생략하거나 누락하지 마세요.
 """.strip()
 
 
