@@ -842,8 +842,18 @@ class OllamaBatchWorker(QThread):
                         self._log(f"[COMPILE] {line}")
                 for line in post_validation_diagnostic_lines(post_validation):
                     self._log(line)
+                #if not post_validation.get("ok", False):
+                #    raise RuntimeError(post_validation_failure_message(post_validation))
+
+                # 🚨 [예외 처리 패치] 검증 등급 세분화 (CRITICAL vs WARNING)
                 if not post_validation.get("ok", False):
+                    # 서버 구동 자체가 실패한 치명적(CRITICAL) 오류일 때만 프로그램 중단
+                    self._log("❌ [CRITICAL] 컴파일 실패 또는 서버 구동 오류로 인해 프로젝트 생성을 중단합니다.")
                     raise RuntimeError(post_validation_failure_message(post_validation))
+                elif post_validation.get("remaining_invalid_count", 0) > 0:
+                    # 서버는 켜졌으나, UI/링크 불균형 등 경고(WARNING) 수준의 에러가 남았을 때
+                    self._log("⚠️ [WARNING] 프로젝트가 성공적으로 생성되었으나, 일부 UI 태그나 링크에 사소한 오류가 남아있을 수 있습니다.")
+                    self._log("💡 수동으로 JSP나 React 파일의 일부 태그를 확인해 주세요.")
             except Exception as post_e:
                 import traceback
                 post_tb = traceback.format_exc()
@@ -1251,6 +1261,7 @@ class MainWindow(QMainWindow):
             QScrollArea { border: none; }
             """
         )
+
     def _update_ollama_gate_state(self, _state=None) -> None:
         # 체크박스 ON이면: 마지막 Gemini JSON 검증(ok=True)일 때만 Ollama 전달 버튼 활성화
         gate_on = False
