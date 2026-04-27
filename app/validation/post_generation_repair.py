@@ -3145,7 +3145,7 @@ def validate_and_repair_generated_files(
     #_force_ultimate_menu_patch(root)
     #_force_remove_hardcoded_localhost(root)
     # =========================================================================
-    _force_ultimate_menu_patch(root)
+    #_force_ultimate_menu_patch(root)
     _force_remove_hardcoded_localhost(root)
     _force_cleanup_ui_assets_and_menu(root)  #
     return report_data
@@ -3524,7 +3524,7 @@ def _force_smart_url_resolver(project_root: Path):
         logger.warning(f"🚀 총 {changed_count}개 JSP 파일에서 AI의 엉터리 경로를 실제 백엔드 경로로 완벽하게 맵핑했습니다.")
 
 
-def _force_ultimate_menu_patch(project_root: Path):
+def _force_ultimate_menu_patch_1(project_root: Path):
     """
         [컨트롤러 분석 기반 스마트 메뉴 생성기]
         각 Controller를 스캔하여 라우트를 수집하되,
@@ -3637,203 +3637,7 @@ def _force_ultimate_menu_patch(project_root: Path):
 
 
 def _force_ultimate_schema_mapper_sync(project_root: Path):
-    """
-    [궁극의 스키마-매퍼 동기화 패치]
-    모든 Mapper XML을 스캔하여 요구되는 테이블과 컬럼을 완벽히 추출한 뒤,
-    schema.sql에 없는 테이블은 새로 만들고(CREATE), 부족한 컬럼은 추가(ALTER)하며,
-    규칙에 어긋난 엉터리 INSERT 문은 차단(주석 처리)하여 DB 에러를 100% 원천 차단합니다.
-    """
-    import re
-    import logging
-    logger = logging.getLogger(__name__)
-
-    schema_path = project_root / 'src/main/resources/schema.sql'
-    if not schema_path.exists():
-        found = list(project_root.rglob('schema.sql'))
-        if not found:
-            return
-        schema_path = found[0]
-
-    sql = schema_path.read_text(encoding='utf-8')
-    original_sql = sql
-
-    # 1. 다중 세미콜론 정리
-    sql = re.sub(r';{2,}', ';', sql)
-
-    # 2. 모든 Mapper XML 스캔하여 실제 필요한 '테이블'과 '컬럼' 완벽 매핑
-    mapper_tables = {}
-    for xml_file in project_root.rglob('*Mapper.xml'):
-        xml_content = xml_file.read_text(encoding='utf-8')
-
-        # 테이블명 추출 (tb_ 로 시작하는 것)
-        tables = set(re.findall(r'(?:FROM|INTO|UPDATE)\s+(tb_[a-zA-Z0-9_]+)', xml_content, re.IGNORECASE))
-        for t in tables:
-            t = t.lower()
-            if t not in mapper_tables:
-                mapper_tables[t] = set()
-
-            # resultMap의 column 속성 추출 (XML이 요구하는 컬럼들)
-            cols = re.findall(r'column=["\']([a-zA-Z0-9_]+)["\']', xml_content, re.IGNORECASE)
-            mapper_tables[t].update([c.lower() for c in cols])
-
-            # INSERT INTO 문의 컬럼 추출
-            inserts = re.findall(rf'INSERT\s+INTO\s+{t}\s*\(([^)]+)\)', xml_content, re.IGNORECASE)
-            for ins in inserts:
-                for c in ins.split(','):
-                    mapper_tables[t].add(c.strip().lower())
-
-    # 3. schema.sql에 정의된 기존 테이블 및 컬럼 분석
-    existing_tables = {}
-    create_pattern = r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-zA-Z0-9_]+)\s*\((.*?)\)\s*(?:;|COMMENT|$)'
-    for match in re.finditer(create_pattern, sql, re.IGNORECASE | re.DOTALL):
-        t_name = match.group(1).lower()
-        col_str = match.group(2)
-
-        existing_cols = set()
-        for line in col_str.split(','):
-            line = line.strip()
-            if line and not line.upper().startswith('PRIMARY') and not line.upper().startswith('UNIQUE'):
-                col_name = line.split()[0].lower()
-                existing_cols.add(col_name)
-
-        existing_tables[t_name] = existing_cols
-
-    # 4. 누락된 테이블 생성 & 부족한 컬럼 ALTER TABLE 강제 주입
-    append_sql = ""
-    for t_name, required_cols in mapper_tables.items():
-        if t_name not in existing_tables:
-            # 아예 없는 테이블이면 CREATE TABLE을 백지에서 만들어줌
-            append_sql += f"\n-- [Auto-Patch] XML에서 호출되나 누락된 {t_name} 자동 생성\n"
-            append_sql += f"CREATE TABLE IF NOT EXISTS {t_name} (\n"
-            col_defs = []
-            for idx, c in enumerate(required_cols):
-                if idx == 0 or c.endswith('_id'):
-                    col_defs.append(f"    {c} VARCHAR(255) PRIMARY KEY")
-                else:
-                    col_defs.append(f"    {c} VARCHAR(255)")
-            if not col_defs:
-                col_defs.append("    id VARCHAR(255) PRIMARY KEY")
-            append_sql += ",\n".join(col_defs)
-            append_sql += "\n);\n"
-        else:
-            # 테이블은 있는데 Mapper가 찾는 컬럼이 부족하면 ALTER TABLE 로 껴넣어줌
-            missing_cols = required_cols - existing_tables[t_name]
-            for c in missing_cols:
-                append_sql += f"\n-- [Auto-Patch] XML에는 있으나 스키마에 없는 컬럼 강제 추가\n"
-                append_sql += f"ALTER TABLE {t_name} ADD COLUMN {c} VARCHAR(255);\n"
-
-    sql += append_sql
-
-    # 5. 엉터리 INSERT 문 검증 및 서버 다운 방지(주석 처리)
-    final_table_cols = {}
-    for t in existing_tables:
-        final_table_cols[t] = set(existing_tables[t])
-    for t in mapper_tables:
-        if t not in final_table_cols:
-            final_table_cols[t] = set()
-        final_table_cols[t].update(mapper_tables[t])
-
-    insert_pattern = r'(INSERT\s+INTO\s+([a-zA-Z0-9_]+)\s*\(([^)]+)\)[^;]+;)'
-    for match in list(re.finditer(insert_pattern, sql, re.IGNORECASE)):
-        full_insert = match.group(1)
-        t_name = match.group(2).lower()
-        ins_cols = [c.strip().lower() for c in match.group(3).split(',')]
-
-        if t_name in final_table_cols:
-            # INSERT하려는 컬럼 중 테이블에 없는 컬럼 찾기
-            invalid_cols = [c for c in ins_cols if c not in final_table_cols[t_name]]
-            if invalid_cols:
-                logger.warning(f"⚠️ [동적 패치] {t_name} INSERT에 없는 컬럼({invalid_cols}) 포함됨. 서버 다운 방지를 위해 주석 처리.")
-                safe_comment = f"/* [Auto-Patch: Invalid columns avoided server crash: {', '.join(invalid_cols)}] \n{full_insert} \n*/"
-                sql = sql.replace(full_insert, safe_comment)
-
-    # 6. 최종 저장
-    if sql != original_sql:
-        schema_path.write_text(sql, encoding='utf-8')
-        logger.info("✅ [궁극의 스키마 패치] Mapper와 schema.sql 간의 테이블/컬럼 불일치 완벽 동기화 완료")
-
-
-def _force_dynamic_schema_generator(project_root: Path):
-    """
-    [하드코딩 없는 동적 스키마 복구기]
-    모든 Mapper XML을 스캔하여 테이블명과 컬럼명을 '동적으로' 추출한 뒤,
-    schema.sql에 누락된 테이블이 있다면 추출한 컬럼을 바탕으로 CREATE TABLE 문을 강제 조립합니다.
-    어떤 도메인(쇼핑몰, 병원 등)의 프로젝트라도 100% 대응 가능합니다.
-    """
-    import re
-    import logging
-    logger = logging.getLogger(__name__)
-
-    schema_path = project_root / 'src/main/resources/schema.sql'
-    if not schema_path.exists():
-        found = list(project_root.rglob('schema.sql'))
-        if not found:
-            return
-        schema_path = found[0]
-
-    sql = schema_path.read_text(encoding='utf-8')
-    original_sql = sql
-
-    # 1. 이미 존재하는 테이블명 추출 (대소문자 무시)
-    existing_tables = set(
-        re.findall(r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(tb_[a-zA-Z0-9_]+)', sql, re.IGNORECASE))
-    existing_tables = {t.lower() for t in existing_tables}
-
-    mapper_tables = {}
-
-    # 2. 모든 Mapper XML을 스캔하여 동적으로 테이블과 컬럼 추출
-    for xml_file in project_root.rglob('*Mapper.xml'):
-        xml_content = xml_file.read_text(encoding='utf-8')
-
-        # 쿼리에 사용된 테이블명 동적 추출 (FROM tb_..., INTO tb_...)
-        used_tables = set(re.findall(r'(?:FROM|INTO|UPDATE)\s+(tb_[a-zA-Z0-9_]+)', xml_content, re.IGNORECASE))
-
-        for t in used_tables:
-            t_lower = t.lower()
-            if t_lower not in mapper_tables:
-                mapper_tables[t_lower] = set()
-
-            # resultMap에서 column 속성을 찾아 동적으로 컬럼명 수집
-            cols_from_resultmap = re.findall(r'column=["\']([a-zA-Z0-9_]+)["\']', xml_content, re.IGNORECASE)
-            mapper_tables[t_lower].update([c.lower() for c in cols_from_resultmap])
-
-            # INSERT INTO 문에서 사용된 컬럼명 수집
-            inserts = re.findall(rf'INSERT\s+INTO\s+{t_lower}\s*\(([^)]+)\)', xml_content, re.IGNORECASE)
-            for ins in inserts:
-                mapper_tables[t_lower].update([c.strip().lower() for c in ins.split(',')])
-
-    append_sql = ""
-
-    # 3. XML에는 있으나 schema.sql에 없는 테이블을 '동적'으로 생성
-    for t_name, cols in mapper_tables.items():
-        if t_name not in existing_tables:
-            append_sql += f"\n-- [Auto-Patch] XML 분석을 통한 누락 테이블 동적 생성\n"
-            append_sql += f"CREATE TABLE IF NOT EXISTS {t_name} (\n"
-
-            col_defs = []
-            cols_list = list(cols)
-
-            # 만약 XML에 명시된 컬럼이 하나도 없다면 최소한의 PK만 생성
-            if not cols_list:
-                cols_list = ['id']
-
-            for idx, c in enumerate(cols_list):
-                # 첫 번째 컬럼이거나 '_id'로 끝나는 컬럼을 자동으로 PRIMARY KEY로 지정
-                if idx == 0 or c.endswith('_id'):
-                    col_defs.append(f"    {c} VARCHAR(255) PRIMARY KEY COMMENT '{c}'")
-                else:
-                    col_defs.append(f"    {c} VARCHAR(255) COMMENT '{c}'")
-
-            append_sql += ",\n".join(col_defs)
-            append_sql += "\n);\n"
-            existing_tables.add(t_name)
-
-    # 4. 누락된 테이블이 생성되었다면 덮어쓰기
-    if append_sql:
-        schema_path.write_text(sql + append_sql, encoding='utf-8')
-        logger.warning(f"✅ [동적 스키마 복구 완료] 하드코딩 없이 XML 분석만으로 누락된 테이블을 100% 자동 생성했습니다.")
-def _force_dynamic_schema_generator(project_root: Path):
-    """[동적 스키마 복구기] Mapper를 스캔해 없는 테이블을 동적으로 생성합니다."""
+    """Mapper XML을 스캔하여 누락된 테이블/컬럼을 schema.sql에 완벽히 생성 및 동기화합니다."""
     import re
     import logging
     logger = logging.getLogger(__name__)
@@ -3846,15 +3650,113 @@ def _force_dynamic_schema_generator(project_root: Path):
 
     sql = schema_path.read_text(encoding='utf-8')
     original_sql = sql
+    sql = re.sub(r';{2,}', ';', sql)
 
-    existing_tables = {t.lower() for t in set(re.findall(r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(tb_[a-zA-Z0-9_]+)', sql, re.IGNORECASE))}
     mapper_tables = {}
+    ignore_words = {'select', 'insert', 'update', 'delete', 'where', 'set', 'values', 'left', 'right', 'inner', 'join',
+                    'from', 'into', 'as', 'on', 'and', 'or', 'order', 'by', 'group', 'having', 'limit', 'offset',
+                    'dual'}
 
     for xml_file in project_root.rglob('*Mapper.xml'):
         xml_content = xml_file.read_text(encoding='utf-8')
-        used_tables = set(re.findall(r'(?:FROM|INTO|UPDATE)\s+(tb_[a-zA-Z0-9_]+)', xml_content, re.IGNORECASE))
+        # 🚨 tb_ 제약 완전 해제! 모든 단어를 테이블 후보로 추출
+        tables = set(re.findall(r'(?:FROM|INTO|UPDATE)\s+([a-zA-Z0-9_]+)', xml_content, re.IGNORECASE))
+
+        for t in tables:
+            t_lower = t.lower()
+            if t_lower in ignore_words: continue  # SQL 예약어 필터링
+
+            if t_lower not in mapper_tables: mapper_tables[t_lower] = set()
+            cols = re.findall(r'column=["\']([a-zA-Z0-9_]+)["\']', xml_content, re.IGNORECASE)
+            mapper_tables[t_lower].update([c.lower() for c in cols])
+            inserts = re.findall(rf'INSERT\s+INTO\s+{t_lower}\s*\(([^)]+)\)', xml_content, re.IGNORECASE)
+            for ins in inserts:
+                for c in ins.split(','): mapper_tables[t_lower].add(c.strip().lower())
+
+    existing_tables = {}
+    # 🚨 CREATE TABLE에서도 tb_ 제약 완전 해제
+    create_pattern = r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-zA-Z0-9_]+)\s*\((.*?)\)\s*(?:;|COMMENT|$)'
+    for match in re.finditer(create_pattern, sql, re.IGNORECASE | re.DOTALL):
+        t_name = match.group(1).lower()
+        col_str = match.group(2)
+        existing_cols = set()
+        for line in col_str.split(','):
+            line = line.strip()
+            if line and not line.upper().startswith('PRIMARY') and not line.upper().startswith(
+                    'UNIQUE') and not line.upper().startswith('FOREIGN'):
+                col_name = line.split()[0].lower()
+                existing_cols.add(col_name)
+        existing_tables[t_name] = existing_cols
+
+    append_sql = ""
+    for t_name, required_cols in mapper_tables.items():
+        if t_name not in existing_tables:
+            append_sql += f"\n-- [Auto-Patch] XML에서 호출되나 누락된 {t_name} 자동 생성\n"
+            append_sql += f"CREATE TABLE IF NOT EXISTS {t_name} (\n"
+            col_defs = []
+            for idx, c in enumerate(required_cols):
+                if idx == 0 or c.endswith('_id'):
+                    col_defs.append(f"    {c} VARCHAR(255) PRIMARY KEY")
+                else:
+                    col_defs.append(f"    {c} VARCHAR(255)")
+            if not col_defs: col_defs.append("    id VARCHAR(255) PRIMARY KEY")
+            append_sql += ",\n".join(col_defs) + "\n);\n"
+        else:
+            missing_cols = required_cols - existing_tables[t_name]
+            for c in missing_cols:
+                append_sql += f"\n-- [Auto-Patch] 스키마에 없는 컬럼 강제 추가\n"
+                append_sql += f"ALTER TABLE {t_name} ADD COLUMN {c} VARCHAR(255);\n"
+    sql += append_sql
+
+    final_table_cols = {t: set(cols) for t, cols in existing_tables.items()}
+    for t in mapper_tables:
+        if t not in final_table_cols: final_table_cols[t] = set()
+        final_table_cols[t].update(mapper_tables[t])
+
+    insert_pattern = r'(INSERT\s+INTO\s+([a-zA-Z0-9_]+)\s*\(([^)]+)\)[^;]+;)'
+    for match in list(re.finditer(insert_pattern, sql, re.IGNORECASE)):
+        full_insert = match.group(1)
+        t_name = match.group(2).lower()
+        ins_cols = [c.strip().lower() for c in match.group(3).split(',')]
+        if t_name in final_table_cols:
+            invalid_cols = [c for c in ins_cols if c not in final_table_cols[t_name]]
+            if invalid_cols:
+                safe_comment = f"/* [Auto-Patch: Invalid columns avoided: {', '.join(invalid_cols)}] \n{full_insert} \n*/"
+                sql = sql.replace(full_insert, safe_comment)
+
+    if sql != original_sql:
+        schema_path.write_text(sql, encoding='utf-8')
+        logger.info("✅ [궁극의 스키마 패치] 테이블/컬럼 불일치 완벽 동기화 완료")
+
+def _force_dynamic_schema_generator(project_root: Path):
+    """동적으로 누락된 테이블을 추가 복구합니다."""
+    import re
+    import logging
+    logger = logging.getLogger(__name__)
+
+    schema_path = project_root / 'src/main/resources/schema.sql'
+    if not schema_path.exists():
+        found = list(project_root.rglob('schema.sql'))
+        if not found: return
+        schema_path = found[0]
+
+    sql = schema_path.read_text(encoding='utf-8')
+
+    # 🚨 tb_ 제약 완전 해제
+    existing_tables = {t.lower() for t in set(re.findall(r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-zA-Z0-9_]+)', sql, re.IGNORECASE))}
+    mapper_tables = {}
+    ignore_words = {'select', 'insert', 'update', 'delete', 'where', 'set', 'values', 'left', 'right', 'inner', 'join', 'from', 'into', 'as', 'on', 'and', 'or', 'order', 'by', 'group', 'having', 'limit', 'offset', 'dual'}
+
+    for xml_file in project_root.rglob('*Mapper.xml'):
+        xml_content = xml_file.read_text(encoding='utf-8')
+
+        # 🚨 tb_ 제약 완전 해제
+        used_tables = set(re.findall(r'(?:FROM|INTO|UPDATE)\s+([a-zA-Z0-9_]+)', xml_content, re.IGNORECASE))
+
         for t in used_tables:
             t_lower = t.lower()
+            if t_lower in ignore_words: continue
+
             if t_lower not in mapper_tables: mapper_tables[t_lower] = set()
             cols_from_resultmap = re.findall(r'column=["\']([a-zA-Z0-9_]+)["\']', xml_content, re.IGNORECASE)
             mapper_tables[t_lower].update([c.lower() for c in cols_from_resultmap])
@@ -3865,22 +3767,18 @@ def _force_dynamic_schema_generator(project_root: Path):
     append_sql = ""
     for t_name, cols in mapper_tables.items():
         if t_name not in existing_tables:
-            append_sql += f"\n-- [Auto-Patch] XML 분석을 통한 누락 테이블 동적 생성\n"
+            append_sql += f"\n-- [Auto-Patch] 누락 테이블 동적 생성\n"
             append_sql += f"CREATE TABLE IF NOT EXISTS {t_name} (\n"
             col_defs = []
             cols_list = list(cols) if cols else ['id']
             for idx, c in enumerate(cols_list):
-                if idx == 0 or c.endswith('_id'):
-                    col_defs.append(f"    {c} VARCHAR(255) PRIMARY KEY COMMENT '{c}'")
-                else:
-                    col_defs.append(f"    {c} VARCHAR(255) COMMENT '{c}'")
+                if idx == 0 or c.endswith('_id'): col_defs.append(f"    {c} VARCHAR(255) PRIMARY KEY COMMENT '{c}'")
+                else: col_defs.append(f"    {c} VARCHAR(255) COMMENT '{c}'")
             append_sql += ",\n".join(col_defs) + "\n);\n"
             existing_tables.add(t_name)
 
     if append_sql:
         schema_path.write_text(sql + append_sql, encoding='utf-8')
-        logger.warning(f"✅ [동적 스키마 복구 완료] 누락 테이블 자동 생성")
-
 def _force_ultimate_menu_patch(project_root: Path):
     """[궁극의 메뉴 재건축기] 이벤트 함수를 거르고 진짜 작동하는 화면만 예쁜 메뉴로 만듭니다."""
     import re
