@@ -996,20 +996,50 @@ class MainWindow(QMainWindow):
         self._engine_map = _fill_combo(self.engine_combo, CODE_ENGINES)
         eng_layout.addWidget(self.engine_combo, 0, 1)
         eng_layout.setColumnStretch(1, 1)
+
+        # --- 여기서부터 복사해서 덮어씌우세요 ---
         sec_design = make_section("디자인 설정", "sec_design", "#fff7e8")
         settings_grid.addWidget(sec_design, 1, 0)
         design_layout = QGridLayout(sec_design)
         design_layout.setHorizontalSpacing(10)
         design_layout.setVerticalSpacing(10)
+
+        # 1. 디자인 스타일
         design_layout.addWidget(QLabel("디자인 스타일"), 0, 0)
         self.design_style_combo = QComboBox()
         self._design_map = _fill_combo(self.design_style_combo, DESIGN_STYLES)
         design_layout.addWidget(self.design_style_combo, 0, 1)
+
+        # 2. 디자인 URL
         design_layout.addWidget(QLabel("디자인 URL"), 1, 0)
         self.design_url_edit = QLineEdit()
         self.design_url_edit.setPlaceholderText("디자인 참고 URL (선택)")
         design_layout.addWidget(self.design_url_edit, 1, 1)
+
+        # 3. 디자인 캡처 (새로 추가됨)
+        design_layout.addWidget(QLabel("디자인 캡처"), 2, 0)
+        capture_layout = QHBoxLayout()
+        self.design_capture_path = QLineEdit()
+        self.design_capture_path.setReadOnly(True)
+        self.design_capture_path.setPlaceholderText("참고할 이미지 파일 첨부")
+
+        capture_btn = QPushButton("파일 찾기")
+        capture_btn.clicked.connect(self._browse_design_capture)  # 클릭 이벤트 연결
+
+        capture_layout.addWidget(self.design_capture_path)
+        capture_layout.addWidget(capture_btn)
+        design_layout.addLayout(capture_layout, 2, 1)
+
+        # 4. 디자인 설명 (새로 추가됨)
+        design_layout.addWidget(QLabel("디자인 설명"), 3, 0)
+        self.design_desc_input = QTextEdit()
+        self.design_desc_input.setPlaceholderText("원하는 디자인의 특징을 상세히 적어주세요.")
+        self.design_desc_input.setMaximumHeight(60)
+        design_layout.addWidget(self.design_desc_input, 3, 1)
+
         design_layout.setColumnStretch(1, 1)
+        # --- 여기까지 복사 ---
+
         sec_db = make_section("데이터베이스", "sec_db", "#f4efff")
         settings_grid.addWidget(sec_db, 1, 1)
         db_layout = QGridLayout(sec_db)
@@ -2201,3 +2231,13 @@ class MainWindow(QMainWindow):
             f"selected_project_path={self.cfg.selected_project_path}\n"
         )
         QMessageBox.information(self, "현재 설정", msg)
+
+    def _browse_design_capture(self):
+        """디자인 캡처 이미지 선택 창"""
+        from PyQt5.QtWidgets import QFileDialog
+        options = QFileDialog.Options()
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "디자인 캡처 이미지 선택", "", "Images (*.png *.jpg *.jpeg *.bmp);;All Files (*)", options=options
+        )
+        if file_path:
+            self.design_capture_path.setText(file_path)

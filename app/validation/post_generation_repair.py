@@ -4367,6 +4367,76 @@ def _apply_autopj_master_patch(project_root, cfg):
             schema_path.write_text(sql, encoding='utf-8')
             logger.info("✅ [통합 패치] 스키마/DB 동기화 완료")
 
+            # ---------------------------------------------------------
+            # [추가] 1-1. INSERT 문 무결성 동적 보정 (하드코딩 완벽 제거)
+            # 테이블 스키마를 동적으로 분석하여 DEFAULT가 없는 NOT NULL 컬럼을 찾아내고,
+            # INSERT 쿼리에 해당 컬럼이 누락되어 있다면 타입에 맞춰 안전한 값을 자동 주입합니다.
+            # ---------------------------------------------------------
+            required_columns = {}
+
+            # 1) CREATE TABLE 구문 분석하여 필수 컬럼(NOT NULL) 추출
+            create_pattern = r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-zA-Z0-9_]+)\s*\((.*?)\)(?:\s*;|COMMENT|$)'
+            for match in re.finditer(create_pattern, sql, re.IGNORECASE | re.DOTALL):
+                t_name = match.group(1).lower()
+                required_columns[t_name] = {}
+
+                # 괄호 안의 컬럼 정의들을 쉼표 기준으로 분리
+                for line in re.split(r',\s*(?![^()]*\))', match.group(2)):
+                    line = line.strip()
+                    if 'NOT NULL' in line.upper() and 'DEFAULT' not in line.upper() and 'AUTO_INCREMENT' not in line.upper():
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            col_name = parts[0].lower()
+                            if col_name not in ['primary', 'unique', 'foreign', 'key', 'constraint']:
+                                col_type = parts[1].upper()
+                                required_columns[t_name][col_name] = col_type
+
+            # 2) INSERT 문 자동 보정 (누락된 필수 컬럼 동적 추가)
+            def dynamic_insert_fix(m):
+                table_name = m.group(2)
+                cols_str = m.group(3)
+                vals_str = m.group(5)
+
+                t_lower = table_name.lower()
+                if t_lower in required_columns:
+                    existing_cols = [c.strip().lower() for c in cols_str.split(',')]
+                    missing_cols = [c for c in required_columns[t_lower].keys() if c not in existing_cols]
+
+                    if missing_cols:
+                        new_cols = cols_str
+                        new_vals = vals_str
+
+                        # 문자열 기본값: 기존 INSERT에 있는 첫 번째 값(보통 ID)을 이름 등으로 차용
+                        fallback_val = "'system'"
+                        first_val_match = re.search(r"'([^']+)'", vals_str)
+                        if first_val_match:
+                            fallback_val = f"'{first_val_match.group(1)}'"
+
+                        for mc in missing_cols:
+                            new_cols += f", {mc}"
+                            col_type = required_columns[t_lower][mc]
+
+                            # 데이터 타입별 안전한 기본값 주입
+                            if any(t in col_type for t in ['INT', 'NUMERIC', 'DECIMAL', 'FLOAT', 'DOUBLE']):
+                                new_vals += ", 0"
+                            elif any(t in col_type for t in ['DATE', 'TIME']):
+                                new_vals += ", CURRENT_TIMESTAMP"
+                            else:
+                                new_vals += f", {fallback_val}"
+
+                        return f"{m.group(1)}{new_cols}{m.group(4)}{new_vals}{m.group(6)}"
+                return m.group(0)
+
+            # INSERT 문장 파싱 정규식
+            insert_pattern = r'(INSERT\s+INTO\s+([a-zA-Z0-9_]+)\s*\()([^)]+)(\)\s*VALUES\s*\()([^)]+)(\))'
+            sql = re.sub(insert_pattern, dynamic_insert_fix, sql, flags=re.IGNORECASE)
+
+            # 수정된 내용을 파일에 기록
+            if sql != original_sql:
+                schema_path.write_text(sql, encoding='utf-8')
+                logger.info("✅ [통합 패치] 스키마 무결성 및 누락 컬럼 동적 주입 완료")
+
+
     # ---------------------------------------------------------
     # 2. UI 정리 및 동적 메뉴(leftNav) 생성
     # ---------------------------------------------------------
