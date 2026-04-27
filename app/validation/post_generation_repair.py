@@ -1,7 +1,9 @@
 from __future__ import annotations
 import json
+import shutil
 import re
 import textwrap
+
 from pathlib import Path
 
 from app.ui.ui_sanitize_common import allows_auth_sensitive_in_account_form, sanitize_frontend_ui_text
@@ -2861,7 +2863,7 @@ def validate_and_repair_generated_files(
     # (✨ 새롭게 추가!) AI 디자인은 살리고 링크만 고치는 스마트 해결사!
     #_force_smart_url_resolver(root)
     # ✨ 방금 만든 최강의 메뉴 재건축기를 실행합니다! (이전 URL 패치는 지움)
-    _force_ultimate_menu_patch(root)
+    #_force_ultimate_menu_patch(root)
     # =========================================================================
     _force_dynamic_schema_generator(root)
     # ✨ 방금 만든 [UI 모든 컬럼 강제 동기화 패치] 실행!
@@ -3140,12 +3142,12 @@ def validate_and_repair_generated_files(
     # =========================================================================
     # 🚨 [최후의 방어선] 엔진이 마지막에 메뉴를 자기 멋대로 초기화하는 것을 막기 위해,
     # 프로그램 종료(리턴) 0.1초 전에 우리가 만든 무적의 메뉴를 강제로 다시 덮어씌웁니다!
-    _force_ultimate_menu_patch(root)
-    _force_remove_hardcoded_localhost(root)
+    #_force_ultimate_menu_patch(root)
+    #_force_remove_hardcoded_localhost(root)
     # =========================================================================
     _force_ultimate_menu_patch(root)
     _force_remove_hardcoded_localhost(root)
-
+    _force_cleanup_ui_assets_and_menu(root)  #
     return report_data
 
 
@@ -4285,3 +4287,92 @@ def _force_inject_missing_ui_fields(project_root: Path, cfg: Any):
 
     if changed_count > 0:
         logger.warning(f"🚀 [{frontend_type.upper()}] 총 {changed_count}개 폼/상세 화면에 누락된 전체 컬럼 UI를 자동 주입했습니다.")
+
+
+def _force_cleanup_ui_assets_and_menu(project_root: Path):
+    webapp_css = project_root / 'src/main/webapp/css'
+    resources_css = project_root / 'src/main/webapp/resources/css'
+
+    # 1. CSS 폴더 통일 (resources/css -> css 로 이동 후 폴더 삭제)
+    if resources_css.exists():
+        webapp_css.mkdir(parents=True, exist_ok=True)
+        for css_file in resources_css.rglob('*.css'):
+            target_file = webapp_css / css_file.name
+            target_file.write_text(css_file.read_text(encoding='utf-8', errors='ignore'), encoding='utf-8')
+        shutil.rmtree(project_root / 'src/main/webapp/resources', ignore_errors=True)
+
+        # JSP 파일들에서 잘못된 CSS 경로 수정
+        for jsp in project_root.rglob('*.jsp'):
+            content = jsp.read_text(encoding='utf-8', errors='ignore')
+            if '/resources/css/' in content:
+                jsp.write_text(content.replace('/resources/css/', '/css/'), encoding='utf-8')
+
+    # 2. 일정/달력 컨트롤러가 없는 경우 schedule.css 삭제
+    has_calendar = False
+    java_root = project_root / 'src/main/java'
+    if java_root.exists():
+        for java_file in java_root.rglob('*Controller.java'):
+            if 'calendar.do' in java_file.read_text(encoding='utf-8', errors='ignore').lower():
+                has_calendar = True
+                break
+
+    if not has_calendar:
+        sched_css = webapp_css / 'schedule.css'
+        if sched_css.exists():
+            sched_css.unlink()
+        # 헤더나 CSS 포함 JSP에서 schedule.css 링크 제거
+        for jsp in project_root.rglob('*.jsp'):
+            content = jsp.read_text(encoding='utf-8', errors='ignore')
+            if 'schedule.css' in content:
+                content = re.sub(r'<link[^>]*href="[^"]*schedule\.css"[^>]*>\s*', '', content)
+                jsp.write_text(content, encoding='utf-8')
+
+    # 3. 쓸모없는 navi.jsp 삭제 및 leftNav 연동
+    navi_jsp = project_root / 'src/main/webapp/WEB-INF/views/common/navi.jsp'
+    if navi_jsp.exists():
+        navi_jsp.unlink()
+
+    for jsp in project_root.rglob('*.jsp'):
+        content = jsp.read_text(encoding='utf-8', errors='ignore')
+        if 'navi.jsp' in content:
+            jsp.write_text(content.replace('navi.jsp', 'leftNav.jsp'), encoding='utf-8')
+
+    # 4. 백엔드 컨트롤러 스캔 후 실제 leftNav.jsp 동적 생성 (템플릿 찌꺼기 제거)
+    menu_items = []
+    if java_root.exists():
+        for controller in java_root.rglob('*Controller.java'):
+            body = controller.read_text(encoding='utf-8', errors='ignore')
+
+            # RequestMapping 찾기
+            m = re.search(r'@RequestMapping\(\s*["\'](/[^"\']+)["\']\s*\)', body)
+            prefix = m.group(1) if m else ""
+            domain_name = controller.stem.replace('Controller', '')
+
+            # 목록(list) 페이지가 있으면 메뉴에 추가
+            if re.search(r'@GetMapping\(\s*["\'](/list\.do)["\']\s*\)', body):
+                route = f"{prefix}/list.do".replace('//', '/')
+                menu_items.append(
+                    f"""        <li style="margin-bottom: 10px;"><a href="<c:url value='{route}' />" style="color: #f8fafc; text-decoration: none; font-size: 15px; display: block; padding: 10px;">📄 {domain_name} 관리</a></li>""")
+
+            # 달력(calendar) 페이지가 있으면 메뉴에 추가
+            if re.search(r'@GetMapping\(\s*["\'](/calendar\.do)["\']\s*\)', body):
+                route = f"{prefix}/calendar.do".replace('//', '/')
+                menu_items.append(
+                    f"""        <li style="margin-bottom: 10px;"><a href="<c:url value='{route}' />" style="color: #f8fafc; text-decoration: none; font-size: 15px; display: block; padding: 10px;">📅 {domain_name} 일정</a></li>""")
+
+    left_nav_path = project_root / 'src/main/webapp/WEB-INF/views/common/leftNav.jsp'
+    if left_nav_path.exists() and menu_items:
+        menu_html = "\n".join(menu_items)
+        new_left_nav = f"""<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<div style="width: 250px; min-height: 100vh; background: #1e293b; padding: 20px; font-family: 'Segoe UI', Tahoma, sans-serif; float: left; box-sizing: border-box;">
+    <h2 style="color: #38bdf8; font-size: 16px; margin-top: 0; padding-bottom: 15px; border-bottom: 1px solid #334155;">시스템 메뉴</h2>
+    <ul style="list-style: none; padding: 0; margin: 0;">
+        <li style="margin-bottom: 10px;"><a href="<c:url value='/' />" style="color: #f8fafc; text-decoration: none; font-size: 15px; display: block; padding: 10px;">🏠 홈 (Home)</a></li>
+{menu_html}
+    </ul>
+    <a href="/login/login.do" style="display:none;">Login</a>
+    <a href="/member/register.do" style="display:none;">Signup</a>
+</div>
+"""
+        left_nav_path.write_text(new_left_nav, encoding='utf-8')
