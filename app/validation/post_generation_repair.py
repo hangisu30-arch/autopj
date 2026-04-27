@@ -2848,6 +2848,9 @@ def validate_and_repair_generated_files(
     # [여기에 추가!] 검증 시작 직전에 우리가 만든 무적 패치를 실행합니다.
     _force_patch_navigation_routes(root, cfg)
     _force_dynamic_schema_generator(root)
+    _force_normalize_frontend_classes(root, cfg)  # <--- ✨ 방금 만든 범용 UI 픽서
+    # ✨ 방금 만든 DB-UI 타입 동기화 패치 실행!
+    _force_convert_char1_to_select(root, cfg)
     _force_ultimate_schema_mapper_sync(root)
     #_force_sync_schema_and_mappers(root)
     #_force_normalize_schema_sql(root)
@@ -2861,7 +2864,8 @@ def validate_and_repair_generated_files(
     _force_ultimate_menu_patch(root)
     # =========================================================================
     _force_dynamic_schema_generator(root)
-
+    # ✨ 방금 만든 [UI 모든 컬럼 강제 동기화 패치] 실행!
+    _force_inject_missing_ui_fields(root, cfg)
 
     runtime_validation, compile_repair_rounds, startup_repair_rounds, smoke_repair_rounds = _run_runtime_followup_loops(
         root=root,
@@ -3948,3 +3952,336 @@ def _force_remove_hardcoded_localhost(project_root: Path):
                 patched = pattern.sub(lambda m: m.group(1) if m.group(1) else '/', original)
                 if original != patched: file_path.write_text(patched, encoding='utf-8')
             except Exception: continue
+
+
+def _force_normalize_frontend_classes(project_root: Path, cfg: Any):
+    """
+    [범용 프론트엔드 클래스 정규화 패치]
+    JSP, React, Vue, Nexacro 등 다양한 프론트엔드 환경에서 일관되지 않게 생성된
+    form 요소(select, input, textarea)의 CSS 클래스를 프레임워크에 맞게 동적으로 교정합니다.
+    """
+    import re
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # 1. 현재 프로젝트의 프론트엔드 환경 파악 (기본값 jsp)
+    frontend_type = str(getattr(cfg, 'frontend_key', 'jsp')).strip().lower()
+
+    # 2. 🚨 [핵심] 확장성을 고려한 프레임워크별 매핑 딕셔너리 (하드코딩 배제)
+    # 추후 새로운 프레임워크가 도입되어도 이곳만 수정하면 무한 확장 가능!
+    class_mappings = {
+        'jsp': {
+            'exts': {'.jsp', '.html'},
+            'attr': 'class',
+            'replacements': {r'\bform-control\b': 'autopj-form-control'}
+        },
+        'react': {
+            'exts': {'.js', '.jsx', '.ts', '.tsx'},
+            'attr': 'className',  # 리액트는 className 사용!
+            'replacements': {r'\bform-control\b': 'autopj-form-control'}
+        },
+        'vue': {
+            'exts': {'.vue'},
+            'attr': 'class',
+            'replacements': {r'\bform-control\b': 'autopj-form-control'}
+        },
+        'nexacro': {
+            'exts': {'.xfdl'},
+            'attr': 'cssclass',  # 넥사크로는 cssclass 속성 사용!
+            'replacements': {r'\bform-control\b': 'autopj_input'}
+        }
+    }
+
+    # 현재 환경에 맞는 매핑 룰셋 가져오기 (매핑이 없으면 jsp 룰셋으로 폴백)
+    rule = class_mappings.get(frontend_type, class_mappings['jsp'])
+    target_exts = rule['exts']
+    target_attr = rule['attr']
+    replacements = rule['replacements']
+
+    changed_count = 0
+
+    # 3. 전체 파일을 스캔하며 동적 치환 수행
+    for file_path in project_root.rglob('*'):
+        if not file_path.is_file() or file_path.suffix.lower() not in target_exts:
+            continue
+
+        try:
+            body = file_path.read_text(encoding='utf-8')
+            original = body
+
+            # 모든 치환 룰을 순회
+            for old_pattern, new_class in replacements.items():
+                # 안전한 치환을 위해 <select>, <input>, <textarea> 태그 내부만 타겟팅
+                def replace_inside_tag(match):
+                    tag_full = match.group(0)
+
+                    # 태그 안에서 해당 프레임워크에 맞는 속성(class, className 등)만 정확히 찾기
+                    attr_pattern = rf'({target_attr}\s*=\s*["\'])(.*?)(["\'])'
+
+                    def inner_replace(attr_match):
+                        prefix = attr_match.group(1)
+                        classes = attr_match.group(2)
+                        suffix = attr_match.group(3)
+
+                        # 엉터리 클래스(form-control)를 시스템 클래스(autopj-form-control)로 치환
+                        new_classes = re.sub(old_pattern, new_class, classes)
+                        return f"{prefix}{new_classes}{suffix}"
+
+                    return re.sub(attr_pattern, inner_replace, tag_full, flags=re.IGNORECASE)
+
+                # 정규식: select, input, textarea 태그를 찾아서 넘김
+                tag_pattern = r'<(select|input|textarea)\b[^>]*>'
+                body = re.sub(tag_pattern, replace_inside_tag, body, flags=re.IGNORECASE)
+
+            if original != body:
+                file_path.write_text(body, encoding='utf-8')
+                changed_count += 1
+
+        except Exception as e:
+            logger.error(f"UI 클래스 정규화 실패 ({file_path.name}): {e}")
+
+    if changed_count > 0:
+        logger.info(f"✅ [{frontend_type.upper()}] 총 {changed_count}개 뷰 파일의 폼 컨트롤(select/input 등) UI 클래스를 완벽히 정규화했습니다.")
+
+
+def _force_convert_char1_to_select(project_root: Path, cfg: Any):
+    """
+    [DB-UI 타입 동기화 패치]
+    하드코딩 배제: schema.sql을 스캔하여 CHAR(1) 또는 VARCHAR(1)로 정의된 컬럼을 동적으로 찾아내고,
+    프론트엔드 환경(JSP, React, Vue 등)의 문법에 맞추어 <input> 태그를 <select> 박스로 자동 치환합니다.
+    """
+    import re
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # 1. schema.sql에서 길이 1짜리 컬럼명(Y/N 플래그 등) 동적 추출
+    schema_path = None
+    for candidate in project_root.rglob('schema.sql'):
+        schema_path = candidate
+        break
+
+    if not schema_path:
+        return
+
+    sql = schema_path.read_text(encoding='utf-8')
+    char1_cols = set()
+
+    # 정규식: 컬럼명 VARCHAR(1) 또는 CHAR(1) 추출
+    matches = re.findall(r'([a-zA-Z0-9_]+)\s+(?:VARCHAR|CHAR)\(\s*1\s*\)', sql, re.IGNORECASE)
+    for m in matches:
+        col = m.lower()
+        char1_cols.add(col)  # 스네이크 케이스 (예: use_yn)
+        # 카멜 케이스 변환 추가 (예: use_yn -> useYn)
+        camel = re.sub(r'_([a-z])', lambda x: x.group(1).upper(), col)
+        char1_cols.add(camel)
+
+    if not char1_cols:
+        return
+
+    # 2. 현재 환경에 따른 프레임워크 룰셋 (확장성)
+    frontend_type = str(getattr(cfg, 'frontend_key', 'jsp')).strip().lower()
+    framework_rules = {
+        'jsp': {'exts': {'.jsp', '.html'}, 'attr': 'class'},
+        'react': {'exts': {'.js', '.jsx', '.ts', '.tsx'}, 'attr': 'className'},
+        'vue': {'exts': {'.vue'}, 'attr': 'class'},
+        'nexacro': {'exts': {'.xfdl'}, 'attr': 'cssclass'}
+    }
+
+    rule = framework_rules.get(frontend_type, framework_rules['jsp'])
+    target_exts = rule['exts']
+    class_attr = rule['attr']
+
+    changed_count = 0
+
+    # 3. 프론트엔드 파일 스캔 및 스마트 치환
+    for file_path in project_root.rglob('*'):
+        if not file_path.is_file() or file_path.suffix.lower() not in target_exts:
+            continue
+
+        try:
+            body = file_path.read_text(encoding='utf-8')
+            original = body
+
+            def replace_input_with_select(match):
+                full_tag = match.group(0)
+
+                # hidden, checkbox, radio는 건너뛰기
+                if re.search(r'type=["\'](?:hidden|checkbox|radio)["\']', full_tag, re.IGNORECASE):
+                    return full_tag
+
+                # name 속성 추출
+                name_match = re.search(r'name=["\']([a-zA-Z0-9_]+)["\']', full_tag, re.IGNORECASE)
+                if not name_match:
+                    return full_tag
+
+                name = name_match.group(1)
+
+                # DB 스키마에 정의된 CHAR(1) 컬럼인지 동적 확인 (하드코딩 X)
+                if name not in char1_cols:
+                    return full_tag
+
+                # 기존 UI 클래스 보존
+                cls_match = re.search(rf'{class_attr}=["\']([^"\']+)["\']', full_tag, re.IGNORECASE)
+                cls_str = f' {class_attr}="{cls_match.group(1)}"' if cls_match else f' {class_attr}="autopj-form-control"'
+
+                # 프레임워크별 문법에 맞춘 <select> 박스 렌더링
+                if frontend_type == 'jsp':
+                    # JSP: JSTL 바인딩 추출 및 유지
+                    model_match = re.search(r'\$\{([^}]+)\}', full_tag)
+                    model_expr = model_match.group(1) if model_match else f"item.{name}"
+                    return f"""<select name="{name}"{cls_str}>
+        <option value="Y" <c:if test="${{{model_expr} == 'Y'}}">selected</c:if>>Y (예)</option>
+        <option value="N" <c:if test="${{empty {model_expr} or {model_expr} == 'N'}}">selected</c:if>>N (아니오)</option>
+      </select>"""
+
+                elif frontend_type == 'react':
+                    # React: value와 onChange 바인딩 유지
+                    val_match = re.search(r'value=\{([^}]+)\}', full_tag)
+                    on_change = re.search(r'onChange=\{([^}]+)\}', full_tag)
+                    v_str = f' value={{{val_match.group(1)}}}' if val_match else ''
+                    oc_str = f' onChange={{{on_change.group(1)}}}' if on_change else ''
+                    return f"""<select name="{name}"{cls_str}{v_str}{oc_str}>
+        <option value="Y">Y (예)</option>
+        <option value="N">N (아니오)</option>
+      </select>"""
+
+                elif frontend_type == 'vue':
+                    # Vue: v-model 바인딩 유지
+                    model_match = re.search(r'v-model=["\']([^"\']+)["\']', full_tag)
+                    v_model = f' v-model="{model_match.group(1)}"' if model_match else ''
+                    return f"""<select name="{name}"{cls_str}{v_model}>
+        <option value="Y">Y (예)</option>
+        <option value="N">N (아니오)</option>
+      </select>"""
+                else:
+                    # 기본 폴백
+                    return f'<select name="{name}"{cls_str}><option value="Y">Y</option><option value="N">N</option></select>'
+
+            # 정규식: <input> 태그 찾기
+            input_pattern = r'<input\b[^>]*>'
+            body = re.sub(input_pattern, replace_input_with_select, body, flags=re.IGNORECASE)
+
+            if original != body:
+                file_path.write_text(body, encoding='utf-8')
+                changed_count += 1
+        except Exception as e:
+            logger.error(f"Select Box 치환 중 에러 발생 ({file_path.name}): {e}")
+
+    if changed_count > 0:
+        logger.warning(f"🚀 [{frontend_type.upper()}] 총 {changed_count}개 파일에서 CHAR(1) 타입 컬럼을 Select 박스로 스마트 치환했습니다.")
+
+
+def _force_inject_missing_ui_fields(project_root: Path, cfg: Any):
+    """
+    [범용 UI 필드 자동 주입기]
+    Mapper XML을 분석하여 테이블의 모든 컬럼을 파악한 뒤,
+    상세보기/입력/수정 폼에 누락된 컬럼이 있다면 프론트엔드 환경(JSP, React, Vue 등)에 맞게
+    UI 필드를 동적으로 렌더링하여 강제 주입합니다.
+    """
+    import re
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # 1. Mapper 스캔: 도메인(Entity)별 전체 컬럼 목록 파악
+    domain_cols = {}
+    for xml in project_root.rglob('*Mapper.xml'):
+        content = xml.read_text(encoding='utf-8')
+
+        # 파일명에서 도메인 이름 추출 (예: MemberMapper -> member)
+        domain_match = re.search(r'([A-Za-z0-9_]+)Mapper\.xml', xml.name)
+        if not domain_match: continue
+        domain = domain_match.group(1)
+        domain_lower = domain[0].lower() + domain[1:]
+
+        # resultMap을 스캔하여 컬럼명 추출
+        cols = re.findall(r'property=["\']([a-zA-Z0-9_]+)["\']', content, re.IGNORECASE)
+        if cols:
+            domain_cols[domain_lower] = list(set(cols))
+
+    frontend_type = str(getattr(cfg, 'frontend_key', 'jsp')).strip().lower()
+    exts = {'.jsp', '.html', '.vue', '.js', '.jsx', '.ts', '.tsx'}
+    changed_count = 0
+
+    # 2. 폼/상세화면 UI 파일 스캔 및 누락 필드 주입
+    for ui_file in project_root.rglob('*'):
+        if not ui_file.is_file() or ui_file.suffix.lower() not in exts: continue
+
+        # Form(입력/수정), Detail/View(상세) 파일만 타겟팅
+        if not any(keyword in ui_file.name for keyword in ['Form', 'Detail', 'View']):
+            continue
+
+        # 도메인 유추 (폴더명 우선, 없으면 파일명 접두사)
+        file_domain = ui_file.parent.name
+        if file_domain not in domain_cols:
+            fd_match = re.match(r'^([a-zA-Z0-9_]+)(?:Form|Detail|View)', ui_file.name)
+            if fd_match and fd_match.group(1) in domain_cols:
+                file_domain = fd_match.group(1)
+            else:
+                continue
+
+        target_cols = domain_cols[file_domain]
+        body = ui_file.read_text(encoding='utf-8')
+        original = body
+
+        # 3. 화면에 이미 존재하는 필드 찾아내기 (중복 생성 방지)
+        existing_fields = set(re.findall(r'(?:name|v-model)=["\']([a-zA-Z0-9_]+)["\']', body))
+        existing_fields.update(re.findall(r'item\.([a-zA-Z0-9_]+)', body))  # EL태그 바인딩 확인
+
+        # 화면에 없는 누락된 컬럼 찾기 (id 등 내부 키는 제외)
+        missing_cols = [c for c in target_cols if c not in existing_fields and not c.lower().endswith('id')]
+        if not missing_cols: continue
+
+        # 4. 프레임워크 환경에 맞는 UI 블록(HTML) 생성
+        inject_html = ""
+        for col in missing_cols:
+            label_name = col[0].upper() + col[1:]  # 카멜케이스를 라벨로 변환
+
+            if frontend_type == 'jsp':
+                inject_html += f"""
+      <label class="autopj-field">
+        <span class="autopj-field__label">{label_name}</span>
+        <input type="text" name="{col}" class="autopj-form-control" value="<c:out value='${{item.{col}}}'/>"/>
+      </label>"""
+            elif frontend_type == 'vue':
+                inject_html += f"""
+      <label class="autopj-field">
+        <span class="autopj-field__label">{label_name}</span>
+        <input type="text" v-model="item.{col}" class="autopj-form-control" />
+      </label>"""
+            elif frontend_type == 'react':
+                inject_html += f"""
+      <label className="autopj-field">
+        <span className="autopj-field__label">{label_name}</span>
+        <input type="text" name="{col}" value={{item.{col} || ''}} onChange={{handleChange}} className="autopj-form-control" />
+      </label>"""
+            elif frontend_type == 'nexacro':
+                # 넥사크로는 좌표(left, top) 기반 XML 구조이므로 별도의 동적 레이아웃 엔진 필요
+                logger.warning(f"⚠️ [Nexacro] {col} 컬럼이 누락됨. (넥사크로 UI는 자동 좌표 계산이 필요하여 수동 추가 권장)")
+                continue
+            else:
+                inject_html += f"""
+      <label class="autopj-field">
+        <span class="autopj-field__label">{label_name}</span>
+        <input type="text" name="{col}" class="autopj-form-control" />
+      </label>"""
+
+        if not inject_html: continue
+
+        # 5. 생성한 UI 블록을 폼 그리드 내부나 버튼 영역 바로 직전에 꽂아넣기
+        if '<div class="autopj-form-grid">' in body:
+            # 그리드 영역 맨 처음에 추가
+            body = body.replace('<div class="autopj-form-grid">', f'<div class="autopj-form-grid">\n{inject_html}', 1)
+        elif 'class="autopj-form-actions"' in body:
+            # 버튼 영역 바로 위에 추가
+            body = body.replace('<div class="autopj-form-actions">',
+                                f'{inject_html}\n    <div class="autopj-form-actions">', 1)
+        else:
+            # 적당한 위치를 못찾으면 폼 닫기 직전에 추가
+            body = body.replace('</form>', f'{inject_html}\n  </form>', 1)
+
+        if body != original:
+            ui_file.write_text(body, encoding='utf-8')
+            changed_count += 1
+
+    if changed_count > 0:
+        logger.warning(f"🚀 [{frontend_type.upper()}] 총 {changed_count}개 폼/상세 화면에 누락된 전체 컬럼 UI를 자동 주입했습니다.")
