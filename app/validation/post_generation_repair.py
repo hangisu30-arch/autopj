@@ -2848,15 +2848,15 @@ def validate_and_repair_generated_files(
 
     # =========================================================================
     # [여기에 추가!] 검증 시작 직전에 우리가 만든 무적 패치를 실행합니다.
-    _force_patch_navigation_routes(root, cfg)
-    _force_dynamic_schema_generator(root)
-    _force_normalize_frontend_classes(root, cfg)  # <--- ✨ 방금 만든 범용 UI 픽서
+    #_force_patch_navigation_routes(root, cfg)
+    #_force_dynamic_schema_generator(root)
+    #_force_normalize_frontend_classes(root, cfg)  # <--- ✨ 방금 만든 범용 UI 픽서
     # ✨ 방금 만든 DB-UI 타입 동기화 패치 실행!
-    _force_convert_char1_to_select(root, cfg)
-    _force_ultimate_schema_mapper_sync(root)
+    #_force_convert_char1_to_select(root, cfg)
+    #_force_ultimate_schema_mapper_sync(root)
     #_force_sync_schema_and_mappers(root)
     #_force_normalize_schema_sql(root)
-    _force_remove_hardcoded_localhost(root)  # <-- 빠져있던 로컬호스트 제거기 추가!
+    #_force_remove_hardcoded_localhost(root)  # <-- 빠져있던 로컬호스트 제거기 추가!
     # (삭제) _force_fix_missing_domain_prefixes(root)
     # (삭제) _force_rebuild_leftnav(root)
 
@@ -2865,9 +2865,9 @@ def validate_and_repair_generated_files(
     # ✨ 방금 만든 최강의 메뉴 재건축기를 실행합니다! (이전 URL 패치는 지움)
     #_force_ultimate_menu_patch(root)
     # =========================================================================
-    _force_dynamic_schema_generator(root)
+    #_force_dynamic_schema_generator(root)
     # ✨ 방금 만든 [UI 모든 컬럼 강제 동기화 패치] 실행!
-    _force_inject_missing_ui_fields(root, cfg)
+    #_force_inject_missing_ui_fields(root, cfg)
 
     runtime_validation, compile_repair_rounds, startup_repair_rounds, smoke_repair_rounds = _run_runtime_followup_loops(
         root=root,
@@ -3146,8 +3146,9 @@ def validate_and_repair_generated_files(
     #_force_remove_hardcoded_localhost(root)
     # =========================================================================
     #_force_ultimate_menu_patch(root)
-    _force_remove_hardcoded_localhost(root)
-    _force_cleanup_ui_assets_and_menu(root)  #
+    #_force_remove_hardcoded_localhost(root)
+    #_force_cleanup_ui_assets_and_menu(root)  #
+    _apply_autopj_master_patch(root, cfg)
     return report_data
 
 
@@ -4274,3 +4275,194 @@ def _force_cleanup_ui_assets_and_menu(project_root: Path):
 </div>
 """
         left_nav_path.write_text(new_left_nav, encoding='utf-8')
+
+
+def _apply_autopj_master_patch(project_root, cfg):
+    """
+    [버그픽스 최종판]
+    1. 'id' 같은 가짜 테이블 생성 버그 및 PRIMARY KEY 중복 생성 문법 에러 수정
+    2. 동적 라우트({viewName}) 메뉴 생성 버그 방지
+    """
+    import re
+    import shutil
+    import logging
+    from pathlib import Path
+    logger = logging.getLogger(__name__)
+
+    # ---------------------------------------------------------
+    # 1. DB 스키마 동기화 (가짜 테이블 방지 & PK 중복 방지)
+    # ---------------------------------------------------------
+    schema_path = project_root / 'src/main/resources/schema.sql'
+    if not schema_path.exists():
+        found = list(project_root.rglob('schema.sql'))
+        if found: schema_path = found[0]
+
+    if schema_path and schema_path.exists():
+        sql = schema_path.read_text(encoding='utf-8')
+        original_sql = sql
+        sql = re.sub(r';{2,}', ';', sql)
+
+        mapper_tables = {}
+
+        # [Fix 1] 'id', 'name', 'password', 'status' 등 테이블로 오해할 만한 단어 전면 차단
+        ignore_words = {
+            'select', 'insert', 'update', 'delete', 'where', 'set', 'values',
+            'left', 'right', 'inner', 'join', 'from', 'into', 'as', 'on',
+            'and', 'or', 'order', 'by', 'group', 'having', 'limit', 'offset', 'dual',
+            'id', 'name', 'password', 'status', 'type', 'date', 'time'
+        }
+
+        for xml_file in project_root.rglob('*Mapper.xml'):
+            xml_content = xml_file.read_text(encoding='utf-8')
+            tables = set(re.findall(r'(?:FROM|INTO|UPDATE)\s+([a-zA-Z0-9_]+)', xml_content, re.IGNORECASE))
+            for t in tables:
+                t_lower = t.lower()
+                if t_lower in ignore_words: continue
+                if t_lower not in mapper_tables: mapper_tables[t_lower] = set()
+                cols = re.findall(r'column=["\']([a-zA-Z0-9_]+)["\']', xml_content, re.IGNORECASE)
+                mapper_tables[t_lower].update([c.lower() for c in cols])
+                inserts = re.findall(rf'INSERT\s+INTO\s+{t_lower}\s*\(([^)]+)\)', xml_content, re.IGNORECASE)
+                for ins in inserts:
+                    for c in ins.split(','): mapper_tables[t_lower].add(c.strip().lower())
+
+        existing_tables = {}
+        create_pattern = r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-zA-Z0-9_]+)\s*\((.*?)\)(?:\s*;|COMMENT|$)'
+        for match in re.finditer(create_pattern, sql, re.IGNORECASE | re.DOTALL):
+            t_name = match.group(1).lower()
+            existing_cols = set()
+            for line in match.group(2).split(','):
+                line = line.strip()
+                if line and not line.upper().startswith(('PRIMARY', 'UNIQUE', 'FOREIGN', 'KEY')):
+                    col_name = line.split()[0].lower()
+                    existing_cols.add(col_name)
+            existing_tables[t_name] = existing_cols
+
+        append_sql = ""
+        for t_name, required_cols in mapper_tables.items():
+            if t_name not in existing_tables:
+                append_sql += f"\n-- [Auto-Patch] 누락된 {t_name} 자동 생성\nCREATE TABLE IF NOT EXISTS {t_name} (\n"
+                col_defs = []
+                has_pk = False
+
+                # [Fix 2] PRIMARY KEY는 오직 1개만 생성되도록 방어 로직 추가
+                for c in required_cols:
+                    if not has_pk and (c == 'id' or c.endswith('_id')):
+                        col_defs.append(f"    {c} VARCHAR(255) PRIMARY KEY")
+                        has_pk = True
+                    else:
+                        col_defs.append(f"    {c} VARCHAR(255)")
+
+                if not col_defs:
+                    col_defs.append("    id VARCHAR(255) PRIMARY KEY")
+                elif not has_pk:
+                    col_defs[0] = col_defs[0] + " PRIMARY KEY"
+
+                append_sql += ",\n".join(col_defs) + "\n);\n"
+            else:
+                for c in required_cols - existing_tables[t_name]:
+                    append_sql += f"\n-- [Auto-Patch] 누락 컬럼 강제 추가\nALTER TABLE {t_name} ADD COLUMN {c} VARCHAR(255);\n"
+
+        sql += append_sql
+        if sql != original_sql:
+            schema_path.write_text(sql, encoding='utf-8')
+            logger.info("✅ [통합 패치] 스키마/DB 동기화 완료")
+
+    # ---------------------------------------------------------
+    # 2. UI 정리 및 동적 메뉴(leftNav) 생성
+    # ---------------------------------------------------------
+    webapp_css = project_root / 'src/main/webapp/css'
+    resources_css = project_root / 'src/main/webapp/resources/css'
+    if resources_css.exists():
+        webapp_css.mkdir(parents=True, exist_ok=True)
+        for css_file in resources_css.rglob('*.css'):
+            try: (webapp_css / css_file.name).write_text(css_file.read_text(encoding='utf-8', errors='ignore'), encoding='utf-8')
+            except Exception: pass
+        shutil.rmtree(project_root / 'src/main/webapp/resources', ignore_errors=True)
+        for jsp in project_root.rglob('*.jsp'):
+            try: jsp.write_text(jsp.read_text(encoding='utf-8', errors='ignore').replace('/resources/css/', '/css/'), encoding='utf-8')
+            except Exception: pass
+
+    java_root = project_root / 'src/main/java'
+    menu_items = []
+    if java_root.exists():
+        for controller in java_root.rglob('*Controller.java'):
+            try:
+                body = controller.read_text(encoding='utf-8', errors='ignore')
+                m = re.search(r'@(?:RequestMapping|GetMapping)\(\s*(?:value\s*=\s*)?["\']([^"\']+)["\']', body)
+                base_route = m.group(1).rstrip('/') if m else ""
+
+                for mm in re.finditer(r'@(?:GetMapping|RequestMapping)\(\s*(?:value\s*=\s*)?["\']([^"\']+)["\']', body):
+                    route = mm.group(1)
+                    full_route = base_route + ('/' + route if not route.startswith('/') else route)
+                    low_route = full_route.lower()
+
+                    if not full_route.endswith('.do'): continue
+
+                    # [Fix 3] {viewName} 등 동적 변수 라우트 메뉴 생성 제외
+                    if '{' in full_route and '}' in full_route: continue
+
+                    if any(skip in low_route for skip in ['save', 'update', 'insert', 'delete', 'remove', 'edit', 'action', 'check', 'login', 'api']): continue
+
+                    parts = []
+                    for p in full_route.replace('.do', '').split('/'):
+                        if p and p not in parts: parts.append(p)
+                    label = " ".join(p.capitalize() for p in parts)
+
+                    icon = "📋" if "list" in low_route else "📅" if "calendar" in low_route else "✍️" if "form" in low_route or "register" in low_route else "🔍" if "detail" in low_route or "view" in low_route else "📄"
+
+                    if full_route not in [r['url'] for r in menu_items]:
+                        menu_items.append({'url': full_route, 'html': f"""
+        <li style="margin-bottom: 10px;">
+            <a href="<c:url value='{full_route}' />" style="color: #f8fafc; text-decoration: none; font-size: 15px; display: block; padding: 10px; border-radius: 6px; transition: background 0.2s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='transparent'">
+                {icon} {label}
+            </a>
+        </li>"""})
+            except Exception: pass
+
+    left_nav_path = project_root / 'src/main/webapp/WEB-INF/views/common/leftNav.jsp'
+    if left_nav_path.exists() and menu_items:
+        menu_html = "".join(item['html'] for item in menu_items)
+        try:
+            left_nav_path.write_text(f"""<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<div style="width: 250px; min-height: 100vh; background: #1e293b; padding: 20px; font-family: 'Segoe UI', Tahoma, sans-serif; float: left; box-sizing: border-box; box-shadow: 2px 0 5px rgba(0,0,0,0.1);">
+    <h2 style="color: #38bdf8; font-size: 16px; margin-top: 0; padding-bottom: 15px; border-bottom: 1px solid #334155;">시스템 메뉴</h2>
+    <ul style="list-style: none; padding: 0; margin: 0;">
+        <li style="margin-bottom: 10px;"><a href="<c:url value='/' />" style="color: #f8fafc; text-decoration: none; font-size: 15px; display: block; padding: 10px; border-radius: 6px;">🏠 홈 (Home)</a></li>
+{menu_html}
+    </ul>
+    <a href="/login/login.do" style="display:none;">Login</a>
+    <a href="/member/register.do" style="display:none;">Signup</a>
+</div>""", encoding='utf-8')
+        except Exception: pass
+
+    # ---------------------------------------------------------
+    # 3. 프론트엔드 에러 원천 차단
+    # ---------------------------------------------------------
+    webapp_dir = project_root / 'src/main/webapp/WEB-INF/views'
+    if webapp_dir.exists():
+        for bad_nav in ['common/nav.jsp', 'common/navi.jsp']:
+            bad_path = webapp_dir / bad_nav
+            if bad_path.exists():
+                try: bad_path.unlink()
+                except Exception: pass
+
+        for jsp in webapp_dir.rglob('*.jsp'):
+            try:
+                content = jsp.read_text(encoding='utf-8', errors='ignore')
+                new_content = content
+                if 'nav.jsp' in new_content and 'leftNav.jsp' not in new_content:
+                    new_content = new_content.replace('nav.jsp', 'leftNav.jsp')
+                if 'checkLoginId.do' in new_content:
+                    new_content = re.sub(r'href=["\'][^"\']*checkLoginId\.do[^"\']*["\']', 'href="javascript:void(0);"', new_content)
+                    new_content = re.sub(r'action=["\'][^"\']*checkLoginId\.do[^"\']*["\']', 'action=""', new_content)
+                new_content = re.sub(r'(<form:(?:input|errors|hidden|password|textarea|checkbox(?:es)?|radiobutton(?:s)?|select|option(?:s)?)[^>]*?[^\/])>', r'\1 />', new_content)
+
+                open_form = len(re.findall(r'<form:form[^>]*>', new_content))
+                close_form = len(re.findall(r'</form:form>', new_content))
+                if open_form > close_form: new_content += '\n</form:form>' * (open_form - close_form)
+                elif close_form > open_form:
+                    for _ in range(close_form - open_form): new_content = re.sub(r'(.*)</form:form>', r'\1', new_content, count=1, flags=re.DOTALL)
+
+                if new_content != content: jsp.write_text(new_content, encoding='utf-8')
+            except Exception: pass
