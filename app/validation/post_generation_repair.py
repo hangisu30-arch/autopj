@@ -4279,9 +4279,14 @@ def _force_cleanup_ui_assets_and_menu(project_root: Path):
 
 def _apply_autopj_master_patch(project_root, cfg):
     """
-    [버그픽스 최종판]
-    1. 'id' 같은 가짜 테이블 생성 버그 및 PRIMARY KEY 중복 생성 문법 에러 수정
-    2. 동적 라우트({viewName}) 메뉴 생성 버그 방지
+    [마스터 패치 V27 - 퍼펙트 어드민 레이아웃 픽스]
+    1. [NEW] 이중 스크롤 방지 및 Full-Height(100vh) 고정형 CSS Flexbox 아키텍처 도입
+    2. 프론트엔드 레이아웃 찌꺼기 청소 및 완벽 주입 (TopNav + LeftNav)
+    3. SQL 문장 단위 중복 제거 및 CREATE -> ALTER -> INSERT 자동 정렬
+    4. AI의 치명적 오타 `); COMMENT='...'` 자동 교정
+    5. 불법 DB 초기화 자바 클래스(Rogue Initializer) 강제 삭제
+    6. 프로젝트 내 모든 *schema*.sql 파일 자동 병합 및 딥스캔 (누락 테이블 자동 생성)
+    7. 유령 의존성(Missing Service/Mapper) 탐지 및 자동 주석 처리
     """
     import re
     import shutil
@@ -4290,249 +4295,442 @@ def _apply_autopj_master_patch(project_root, cfg):
     logger = logging.getLogger(__name__)
 
     # ---------------------------------------------------------
-    # 1. DB 스키마 동기화 (가짜 테이블 방지 & PK 중복 방지)
+    # 1. 불법 DB 초기화 클래스 강제 삭제
     # ---------------------------------------------------------
-    schema_path = project_root / 'src/main/resources/schema.sql'
-    if not schema_path.exists():
-        found = list(project_root.rglob('schema.sql'))
-        if found: schema_path = found[0]
-
-    if schema_path and schema_path.exists():
-        sql = schema_path.read_text(encoding='utf-8')
-        original_sql = sql
-        sql = re.sub(r';{2,}', ';', sql)
-
-        mapper_tables = {}
-
-        # [Fix 1] 'id', 'name', 'password', 'status' 등 테이블로 오해할 만한 단어 전면 차단
-        ignore_words = {
-            'select', 'insert', 'update', 'delete', 'where', 'set', 'values',
-            'left', 'right', 'inner', 'join', 'from', 'into', 'as', 'on',
-            'and', 'or', 'order', 'by', 'group', 'having', 'limit', 'offset', 'dual',
-            'id', 'name', 'password', 'status', 'type', 'date', 'time'
-        }
-
-        for xml_file in project_root.rglob('*Mapper.xml'):
-            xml_content = xml_file.read_text(encoding='utf-8')
-            tables = set(re.findall(r'(?:FROM|INTO|UPDATE)\s+([a-zA-Z0-9_]+)', xml_content, re.IGNORECASE))
-            for t in tables:
-                t_lower = t.lower()
-                if t_lower in ignore_words: continue
-                if t_lower not in mapper_tables: mapper_tables[t_lower] = set()
-                cols = re.findall(r'column=["\']([a-zA-Z0-9_]+)["\']', xml_content, re.IGNORECASE)
-                mapper_tables[t_lower].update([c.lower() for c in cols])
-                inserts = re.findall(rf'INSERT\s+INTO\s+{t_lower}\s*\(([^)]+)\)', xml_content, re.IGNORECASE)
-                for ins in inserts:
-                    for c in ins.split(','): mapper_tables[t_lower].add(c.strip().lower())
-
-        existing_tables = {}
-        create_pattern = r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-zA-Z0-9_]+)\s*\((.*?)\)(?:\s*;|COMMENT|$)'
-        for match in re.finditer(create_pattern, sql, re.IGNORECASE | re.DOTALL):
-            t_name = match.group(1).lower()
-            existing_cols = set()
-            for line in match.group(2).split(','):
-                line = line.strip()
-                if line and not line.upper().startswith(('PRIMARY', 'UNIQUE', 'FOREIGN', 'KEY')):
-                    col_name = line.split()[0].lower()
-                    existing_cols.add(col_name)
-            existing_tables[t_name] = existing_cols
-
-        append_sql = ""
-        for t_name, required_cols in mapper_tables.items():
-            if t_name not in existing_tables:
-                append_sql += f"\n-- [Auto-Patch] 누락된 {t_name} 자동 생성\nCREATE TABLE IF NOT EXISTS {t_name} (\n"
-                col_defs = []
-                has_pk = False
-
-                # [Fix 2] PRIMARY KEY는 오직 1개만 생성되도록 방어 로직 추가
-                for c in required_cols:
-                    if not has_pk and (c == 'id' or c.endswith('_id')):
-                        col_defs.append(f"    {c} VARCHAR(255) PRIMARY KEY")
-                        has_pk = True
-                    else:
-                        col_defs.append(f"    {c} VARCHAR(255)")
-
-                if not col_defs:
-                    col_defs.append("    id VARCHAR(255) PRIMARY KEY")
-                elif not has_pk:
-                    col_defs[0] = col_defs[0] + " PRIMARY KEY"
-
-                append_sql += ",\n".join(col_defs) + "\n);\n"
-            else:
-                for c in required_cols - existing_tables[t_name]:
-                    append_sql += f"\n-- [Auto-Patch] 누락 컬럼 강제 추가\nALTER TABLE {t_name} ADD COLUMN {c} VARCHAR(255);\n"
-
-        sql += append_sql
-        if sql != original_sql:
-            schema_path.write_text(sql, encoding='utf-8')
-            logger.info("✅ [통합 패치] 스키마/DB 동기화 완료")
-
-            # ---------------------------------------------------------
-            # [추가] 1-1. INSERT 문 무결성 동적 보정 (하드코딩 완벽 제거)
-            # 테이블 스키마를 동적으로 분석하여 DEFAULT가 없는 NOT NULL 컬럼을 찾아내고,
-            # INSERT 쿼리에 해당 컬럼이 누락되어 있다면 타입에 맞춰 안전한 값을 자동 주입합니다.
-            # ---------------------------------------------------------
-            required_columns = {}
-
-            # 1) CREATE TABLE 구문 분석하여 필수 컬럼(NOT NULL) 추출
-            create_pattern = r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-zA-Z0-9_]+)\s*\((.*?)\)(?:\s*;|COMMENT|$)'
-            for match in re.finditer(create_pattern, sql, re.IGNORECASE | re.DOTALL):
-                t_name = match.group(1).lower()
-                required_columns[t_name] = {}
-
-                # 괄호 안의 컬럼 정의들을 쉼표 기준으로 분리
-                for line in re.split(r',\s*(?![^()]*\))', match.group(2)):
-                    line = line.strip()
-                    if 'NOT NULL' in line.upper() and 'DEFAULT' not in line.upper() and 'AUTO_INCREMENT' not in line.upper():
-                        parts = line.split()
-                        if len(parts) >= 2:
-                            col_name = parts[0].lower()
-                            if col_name not in ['primary', 'unique', 'foreign', 'key', 'constraint']:
-                                col_type = parts[1].upper()
-                                required_columns[t_name][col_name] = col_type
-
-            # 2) INSERT 문 자동 보정 (누락된 필수 컬럼 동적 추가)
-            def dynamic_insert_fix(m):
-                table_name = m.group(2)
-                cols_str = m.group(3)
-                vals_str = m.group(5)
-
-                t_lower = table_name.lower()
-                if t_lower in required_columns:
-                    existing_cols = [c.strip().lower() for c in cols_str.split(',')]
-                    missing_cols = [c for c in required_columns[t_lower].keys() if c not in existing_cols]
-
-                    if missing_cols:
-                        new_cols = cols_str
-                        new_vals = vals_str
-
-                        # 문자열 기본값: 기존 INSERT에 있는 첫 번째 값(보통 ID)을 이름 등으로 차용
-                        fallback_val = "'system'"
-                        first_val_match = re.search(r"'([^']+)'", vals_str)
-                        if first_val_match:
-                            fallback_val = f"'{first_val_match.group(1)}'"
-
-                        for mc in missing_cols:
-                            new_cols += f", {mc}"
-                            col_type = required_columns[t_lower][mc]
-
-                            # 데이터 타입별 안전한 기본값 주입
-                            if any(t in col_type for t in ['INT', 'NUMERIC', 'DECIMAL', 'FLOAT', 'DOUBLE']):
-                                new_vals += ", 0"
-                            elif any(t in col_type for t in ['DATE', 'TIME']):
-                                new_vals += ", CURRENT_TIMESTAMP"
-                            else:
-                                new_vals += f", {fallback_val}"
-
-                        return f"{m.group(1)}{new_cols}{m.group(4)}{new_vals}{m.group(6)}"
-                return m.group(0)
-
-            # INSERT 문장 파싱 정규식
-            insert_pattern = r'(INSERT\s+INTO\s+([a-zA-Z0-9_]+)\s*\()([^)]+)(\)\s*VALUES\s*\()([^)]+)(\))'
-            sql = re.sub(insert_pattern, dynamic_insert_fix, sql, flags=re.IGNORECASE)
-
-            # 수정된 내용을 파일에 기록
-            if sql != original_sql:
-                schema_path.write_text(sql, encoding='utf-8')
-                logger.info("✅ [통합 패치] 스키마 무결성 및 누락 컬럼 동적 주입 완료")
-
-
-    # ---------------------------------------------------------
-    # 2. UI 정리 및 동적 메뉴(leftNav) 생성
-    # ---------------------------------------------------------
-    webapp_css = project_root / 'src/main/webapp/css'
-    resources_css = project_root / 'src/main/webapp/resources/css'
-    if resources_css.exists():
-        webapp_css.mkdir(parents=True, exist_ok=True)
-        for css_file in resources_css.rglob('*.css'):
-            try: (webapp_css / css_file.name).write_text(css_file.read_text(encoding='utf-8', errors='ignore'), encoding='utf-8')
-            except Exception: pass
-        shutil.rmtree(project_root / 'src/main/webapp/resources', ignore_errors=True)
-        for jsp in project_root.rglob('*.jsp'):
-            try: jsp.write_text(jsp.read_text(encoding='utf-8', errors='ignore').replace('/resources/css/', '/css/'), encoding='utf-8')
-            except Exception: pass
-
     java_root = project_root / 'src/main/java'
+    if java_root.exists():
+        for java_file in java_root.rglob('*.java'):
+            file_name = java_file.name
+            if 'Initializer' in file_name or 'DatabaseSetup' in file_name or 'DataLoader' in file_name:
+                try:
+                    content = java_file.read_text(encoding='utf-8', errors='ignore')
+                    if 'execute' in content and (
+                            'sql' in content.lower() or 'jdbc' in content.lower() or 'datasource' in content.lower() or 'schema' in content.lower()):
+                        java_file.unlink()
+                except Exception:
+                    pass
+
+    # ---------------------------------------------------------
+    # 2. 💡 [V27 핵심] CSS 완벽 어드민 레이아웃 (이중 스크롤 방지)
+    # ---------------------------------------------------------
+    webapp_css_dir = project_root / 'src/main/webapp/css'
+    common_css_path = webapp_css_dir / 'common.css'
+    webapp_css_dir.mkdir(parents=True, exist_ok=True)
+
+    all_css_content = ["""
+/* --- Perfect Admin Layout (Fixed Full Height) --- */
+html, body { 
+    margin: 0; padding: 0; 
+    height: 100vh; /* 화면 꽉 채우기 */
+    overflow: hidden; /* 브라우저 자체 스크롤 금지 (이중 스크롤 원천 차단) */
+    font-family: 'Segoe UI', Tahoma, sans-serif; 
+    display: flex; flex-direction: column; 
+}
+
+/* Top Navigation (Fixed Height) */
+.top-nav { 
+    height: 60px; flex-shrink: 0; /* 절대 찌그러지지 않음 */
+    background: inherit; border-bottom: 1px solid rgba(0,0,0,0.1); 
+    display: flex; align-items: center; padding: 0 20px; z-index: 10; 
+}
+.top-nav-logo { font-size: 20px; font-weight: 800; margin-right: auto; letter-spacing: -0.5px; }
+.top-nav-menu { list-style: none; display: flex; gap: 20px; margin: 0; padding: 0; }
+.top-nav-menu a { text-decoration: none; color: inherit; font-weight: 600; font-size: 14px; }
+
+/* Body Wrapper (Fills remaining height) */
+.body-wrapper { 
+    display: flex; 
+    flex-grow: 1; /* 남은 화면 꽉 채우기 */
+    height: calc(100vh - 60px); /* 100vh에서 헤더 높이 빼기 */
+    overflow: hidden; 
+}
+
+/* Sidebar (Fixed Width, Independent Scroll) */
+.sidebar-container { 
+    width: 250px; flex-shrink: 0; 
+    height: 100%; /* 부모(body-wrapper) 높이 100% 꽉 채우기 (배경 끊김 방지) */
+    padding: 20px; box-sizing: border-box; 
+    border-right: 1px solid rgba(0,0,0,0.1); background: inherit; 
+    overflow-y: auto; /* 메뉴가 많을 때만 내부 스크롤 발생 */
+}
+.sidebar-title { font-size: 14px; color: #64748b; margin-top: 0; padding-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+.sidebar-menu { list-style: none; padding: 0; margin: 0; }
+.sidebar-menu li { margin-bottom: 8px; }
+.sidebar-menu .nav-link { display: block; padding: 10px 12px; border-radius: 8px; text-decoration: none; color: inherit; transition: all 0.2s; font-size: 15px; }
+.sidebar-menu .nav-link:hover { background: rgba(128,128,128,0.1); }
+
+/* Main Content (Fills remaining width, Independent Scroll) */
+.main-content { 
+    flex-grow: 1; 
+    height: 100%; 
+    padding: 30px; box-sizing: border-box; 
+    background: inherit; 
+    overflow-y: auto; /* 컨텐츠가 길 때만 내부 스크롤 발생 */
+    overflow-x: hidden; /* 가로 스크롤 방지 */
+}
+
+/* Components */
+.card-box { border-radius: 12px; border: 1px solid rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
+.table-responsive { width: 100%; overflow-x: auto; /* 모바일이나 작은 창에서 테이블 깨짐 방지 */ }
+table { width: 100%; border-collapse: collapse; margin: 15px 0; min-width: 600px; }
+th, td { padding: 12px; border-bottom: 1px solid rgba(0,0,0,0.1); text-align: left; }
+.btn-primary { padding: 10px 20px; border-radius: 8px; cursor: pointer; border: none; font-weight: 600; }
+input[type="text"], input[type="password"], input[type="date"], select, textarea { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; width: 100%; max-width: 400px; box-sizing: border-box; }
+    """]
+
+    for css_file in list(project_root.rglob('*.css')):
+        try:
+            content = css_file.read_text(encoding='utf-8', errors='ignore')
+            all_css_content.append(f"\n/* Merged from: {css_file.name} */\n" + content)
+            if css_file.absolute() != common_css_path.absolute(): css_file.unlink()
+        except Exception:
+            pass
+
+    style_name = getattr(cfg, 'design_style', '기본')
+    themes = {
+        "모던 다크": "body { background: #111827 !important; color: #f9fafb !important; } .sidebar-container, .top-nav, .card-box { background: #1f2937 !important; border-color: #374151 !important; } th, td { border-color: #374151 !important; } input, select, textarea { background: #374151; color: #fff; border-color: #4b5563; } .btn-primary { background: #3b82f6 !important; color: #fff !important; } a { color: #e5e7eb; }",
+        "토스 스타일": "body { background: #f9fafb !important; color: #333 !important; font-family: 'Pretendard', sans-serif !important; } .top-nav { background: #fff !important; border-bottom: 1px solid #f3f4f6 !important; } .sidebar-container { background: #f9fafb !important; border-right: none !important; } .card-box { background: #ffffff !important; border: none !important; border-radius: 20px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.03) !important; } .btn-primary { background: #3182f6 !important; color: #fff !important; border-radius: 12px !important; transition: transform 0.2s; } .btn-primary:hover { transform: translateY(-2px); }",
+        "애플 스타일": "body { background: #f5f5f7 !important; color: #1d1d1f !important; font-family: -apple-system, sans-serif !important; } .top-nav, .sidebar-container, .card-box { background: rgba(255, 255, 255, 0.7) !important; backdrop-filter: blur(20px); border-color: rgba(0,0,0,0.05) !important; } .card-box { border-radius: 18px !important; box-shadow: 0 4px 24px rgba(0,0,0,0.04) !important; } .btn-primary { background: #0071e3 !important; color: #fff !important; border-radius: 980px !important; font-weight: 400 !important; }"
+    }
+
+    final_css = "\n".join(all_css_content)
+    if style_name in themes: final_css += f"\n\n/* [Auto-Design Patch] {style_name} */\n" + themes[style_name]
+    common_css_path.write_text(final_css, encoding='utf-8')
+    shutil.rmtree(project_root / 'src/main/webapp/resources', ignore_errors=True)
+
+    # ---------------------------------------------------------
+    # 3. Spring Boot 애플리케이션 시작 시 DB 자동 생성 위임
+    # ---------------------------------------------------------
+    resources_dir = project_root / 'src/main/resources'
+    app_prop_path = resources_dir / 'application.properties'
+    app_yml_path = resources_dir / 'application.yml'
+
+    if app_prop_path.exists():
+        prop_content = app_prop_path.read_text(encoding='utf-8', errors='ignore')
+        if 'spring.sql.init.mode' not in prop_content:
+            prop_content += "\n\n# [Auto-Patch] 스프링부트 서버 구동 시 schema.sql 자동 실행 (테이블 생성)"
+            prop_content += "\nspring.sql.init.mode=always"
+            prop_content += "\nspring.datasource.initialization-mode=always"
+            prop_content += "\nspring.sql.init.encoding=UTF-8\n"
+            app_prop_path.write_text(prop_content, encoding='utf-8')
+
+    # ---------------------------------------------------------
+    # 4. 파편화된 SQL 파일 통합 및 *문장 정렬 엔진*
+    # ---------------------------------------------------------
+    resources_dir.mkdir(parents=True, exist_ok=True)
+    schema_path = resources_dir / 'schema.sql'
+
+    merged_sql = ""
+    for sql_file in project_root.rglob('*.sql'):
+        name_lower = sql_file.name.lower()
+        if 'schema' in name_lower or 'data' in name_lower:
+            try:
+                content = sql_file.read_text(encoding='utf-8', errors='ignore')
+                merged_sql += f"\n{content}\n"
+                if sql_file.absolute() != schema_path.absolute():
+                    sql_file.unlink()
+            except Exception:
+                pass
+
+    sql = merged_sql
+    db_type = getattr(cfg, 'database_key', 'mysql').lower()
+
+    sql = re.sub(r'\);\s*COMMENT\s*=\s*([^\n;]+)', r') COMMENT=\1', sql, flags=re.IGNORECASE)
+    sql = re.sub(r';{2,}', ';', sql)
+    sql = re.sub(r'(?i)^\s*DROP\s+TABLE\s+IF\s+EXISTS\s+[a-zA-Z0-9_`]+;', r'-- \g<0>', sql, flags=re.MULTILINE)
+    sql = re.sub(r'CREATE\s+TABLE\s+(?!IF\s+NOT\s+EXISTS)', 'CREATE TABLE IF NOT EXISTS ', sql, flags=re.IGNORECASE)
+
+    if db_type in ['mysql', 'mariadb']:
+        sql = re.sub(r'\bINSERT\s+INTO\b', 'INSERT IGNORE INTO', sql, flags=re.IGNORECASE)
+        sql = re.sub(r'\bDATE\s+DEFAULT\s+CURRENT_DATE\s+ON\s+UPDATE\s+CURRENT_DATE\b',
+                     'DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP', sql, flags=re.I)
+        sql = re.sub(r'\bDATE\s+DEFAULT\s+CURRENT_DATE\b', 'DATETIME DEFAULT CURRENT_TIMESTAMP', sql, flags=re.I)
+        sql = re.sub(r'\bAUTOINCREMENT\b', 'AUTO_INCREMENT', sql, flags=re.I)
+    elif db_type in ['sqlite', 'h2']:
+        sql = re.sub(r'\bINSERT\s+INTO\b', 'INSERT OR IGNORE INTO', sql, flags=re.IGNORECASE)
+        sql = re.sub(r'\bAUTO_INCREMENT\b', 'AUTOINCREMENT', sql, flags=re.I)
+        sql = re.sub(r'\bINT\s+AUTOINCREMENT\s+PRIMARY\s+KEY\b', 'INTEGER PRIMARY KEY AUTOINCREMENT', sql, flags=re.I)
+        sql = re.sub(r'\s+COMMENT\s+\'[^\']*\'', '', sql, flags=re.I)
+
+    new_sql_lines = []
+    for line in sql.split('\n'):
+        upper_line = line.upper()
+        if 'NOT NULL' in upper_line and 'DEFAULT' not in upper_line and 'PRIMARY KEY' not in upper_line and 'AUTO_INCREMENT' not in upper_line:
+            if not upper_line.strip().startswith(('CONSTRAINT', 'FOREIGN', 'UNIQUE', 'CHECK')):
+                if 'ROLE' in upper_line:
+                    d_val = "'USER'"
+                elif 'USE' in upper_line or 'STATUS' in upper_line:
+                    d_val = "'Y'"
+                elif 'INT' in upper_line or 'NUMERIC' in upper_line:
+                    d_val = "0"
+                elif 'DATE' in upper_line:
+                    d_val = "CURRENT_TIMESTAMP"
+                else:
+                    d_val = "''"
+                line = re.sub(r'(?i)(NOT\s+NULL)', rf'\1 DEFAULT {d_val}', line, count=1)
+        new_sql_lines.append(line)
+    sql = '\n'.join(new_sql_lines)
+
+    unique_stmts = []
+    seen_normalized = set()
+    existing_tables = {}
+    required_tables = {}
+    ignore_words = {'select', 'insert', 'update', 'delete', 'where', 'set', 'values', 'from', 'into', 'id', 'and', 'or',
+                    'join', 'table', 'ignore'}
+
+    for stmt in sql.split(';'):
+        cleaned = stmt.strip()
+        if not cleaned or cleaned.startswith('--'): continue
+
+        normalized = re.sub(r'\s+', ' ', cleaned).lower()
+        if normalized not in seen_normalized:
+            seen_normalized.add(normalized)
+            unique_stmts.append(cleaned)
+
+            m = re.search(r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-zA-Z0-9_]+)\s*\((.*)\)', cleaned,
+                          re.IGNORECASE | re.DOTALL)
+            if m:
+                t_name = m.group(1).lower()
+                cols = set(line.split()[0].lower() for line in re.sub(r'\([^)]*\)', '', m.group(2)).split(',') if
+                           line.strip() and not line.strip().upper().startswith(('PRIMARY', 'UNIQUE')))
+                existing_tables[t_name] = cols
+
+            m2 = re.search(r'INSERT\s+(?:IGNORE\s+|OR\s+IGNORE\s+)?INTO\s+([a-zA-Z0-9_]+)\s*\(([^)]+)\)', cleaned,
+                           re.IGNORECASE)
+            if m2:
+                t = m2.group(1).lower()
+                if t not in required_tables: required_tables[t] = set()
+                for c in m2.group(2).split(','):
+                    c = c.strip().replace('`', '').lower()
+                    if c and c not in ignore_words: required_tables[t].add(c)
+
+    for xml_file in project_root.rglob('*Mapper.xml'):
+        clean_xml = re.sub(r'<[^>]+>', ' ', xml_file.read_text(encoding='utf-8'))
+        for m in re.finditer(r'(?:FROM|JOIN|INTO|UPDATE)\s+([a-zA-Z0-9_]+)', clean_xml, re.IGNORECASE):
+            t = m.group(1).lower()
+            if t not in ignore_words and not t.startswith('#'):
+                if t not in required_tables: required_tables[t] = set()
+        for m in re.finditer(r'INSERT\s+(?:IGNORE\s+)?INTO\s+([a-zA-Z0-9_]+)\s*\(([^)]+)\)', clean_xml, re.IGNORECASE):
+            t = m.group(1).lower()
+            if t not in required_tables: required_tables[t] = set()
+            for c in m.group(2).split(','):
+                c = c.strip().replace('`', '').lower()
+                if c and c not in ignore_words: required_tables[t].add(c)
+
+    create_stmts = []
+    alter_stmts = []
+    insert_stmts = []
+    other_stmts = []
+
+    for stmt in unique_stmts:
+        up = stmt.upper()
+        if up.startswith('CREATE TABLE'):
+            create_stmts.append(stmt)
+        elif up.startswith('ALTER TABLE'):
+            alter_stmts.append(stmt)
+        elif up.startswith('INSERT'):
+            insert_stmts.append(stmt)
+        else:
+            other_stmts.append(stmt)
+
+    for t_name, req_cols in required_tables.items():
+        if t_name not in existing_tables:
+            pk_type = "INT AUTO_INCREMENT PRIMARY KEY" if db_type != 'sqlite' else "INTEGER PRIMARY KEY AUTOINCREMENT"
+            col_defs = [f"    {c} VARCHAR(255)" for c in req_cols if c != 'id']
+            new_create = f"CREATE TABLE IF NOT EXISTS {t_name} (\n    id {pk_type}" + (
+                ",\n" + ",\n".join(col_defs) if col_defs else "") + "\n)"
+            create_stmts.append(new_create)
+            existing_tables[t_name] = req_cols
+        else:
+            missing_cols = req_cols - existing_tables[t_name]
+            for c in missing_cols:
+                alter_stmts.append(f"ALTER TABLE {t_name} ADD COLUMN {c} VARCHAR(255)")
+                existing_tables[t_name].add(c)
+
+    final_sql_parts = []
+    if create_stmts: final_sql_parts.append(";\n\n".join(create_stmts))
+    if alter_stmts: final_sql_parts.append(";\n\n".join(alter_stmts))
+    if insert_stmts: final_sql_parts.append(";\n\n".join(insert_stmts))
+    if other_stmts: final_sql_parts.append(";\n\n".join(other_stmts))
+
+    if final_sql_parts:
+        schema_path.write_text(";\n\n\n".join(final_sql_parts) + ";\n", encoding='utf-8')
+
+    # ---------------------------------------------------------
+    # 5. Mapper XML 및 백엔드 의존성 수술
+    # ---------------------------------------------------------
+    for xml_file in project_root.rglob('*Mapper.xml'):
+        try:
+            xml_content = xml_file.read_text(encoding='utf-8')
+            new_xml = re.sub(r',\s*\)', ')', xml_content)
+            if new_xml != xml_content: xml_file.write_text(new_xml, encoding='utf-8')
+        except Exception:
+            pass
+
+    java_files = set(f.name for f in java_root.rglob('*.java')) if java_root.exists() else set()
+    if java_root.exists():
+        for controller in java_root.rglob('*Controller.java'):
+            try:
+                content = controller.read_text(encoding='utf-8', errors='ignore')
+                new_content = content
+                ghost_vars = []
+                for match in re.finditer(
+                        r'@(?:Autowired|Resource)[\s\S]{0,50}?(?:private|protected|public)?\s+([A-Za-z0-9_]+(?:Service|Mapper|DAO))\s+([a-zA-Z0-9_]+)\s*;',
+                        new_content):
+                    if f"{match.group(1)}.java" not in java_files:
+                        ghost_vars.append(match.group(2))
+                        new_content = new_content.replace(match.group(0),
+                                                          f"/* [Auto-Patch] Missing Dependency: \n{match.group(0)} \n*/")
+                for var in ghost_vars:
+                    new_content = re.sub(rf'^([ \t]*)(.*\b{var}\..*)$',
+                                         r'\1// [Auto-Patch] Disabled due to missing service: \2', new_content,
+                                         flags=re.MULTILINE)
+
+                new_content = re.sub(r'return\s+null\s*;', 'return "common/error"; // [Auto-Patch] fixed null',
+                                     new_content)
+                new_content = re.sub(r'@RequestMapping\s*\([^)]+\)\s*(@(?:Get|Post|Put|Delete)Mapping\s*\([^)]+\))',
+                                     r'\1', new_content)
+                new_content = re.sub(r'(@(?:Get|Post|Put|Delete)Mapping\s*\([^)]+\))\s*@RequestMapping\s*\([^)]+\)',
+                                     r'\1', new_content)
+
+                def simplify_array_mapping(m):
+                    first_str = re.search(r'["\']([^"\']+)["\']', m.group(2))
+                    return f'{m.group(1)}"{first_str.group(1)}"{m.group(3)}' if first_str else m.group(0)
+
+                new_content = re.sub(
+                    r'(@(?:RequestMapping|GetMapping|PostMapping|PutMapping|DeleteMapping)\s*\(\s*(?:value\s*=\s*)?)\{([^}]+)\}(\s*\))',
+                    simplify_array_mapping, new_content)
+                if new_content != content: controller.write_text(new_content, encoding='utf-8')
+            except Exception:
+                pass
+
+    # ---------------------------------------------------------
+    # 6. 정밀 동적 메뉴 생성 (leftNav + topNav 분리)
+    # ---------------------------------------------------------
     menu_items = []
     if java_root.exists():
         for controller in java_root.rglob('*Controller.java'):
             try:
                 body = controller.read_text(encoding='utf-8', errors='ignore')
-                m = re.search(r'@(?:RequestMapping|GetMapping)\(\s*(?:value\s*=\s*)?["\']([^"\']+)["\']', body)
-                base_route = m.group(1).rstrip('/') if m else ""
-
-                for mm in re.finditer(r'@(?:GetMapping|RequestMapping)\(\s*(?:value\s*=\s*)?["\']([^"\']+)["\']', body):
+                if '@RestController' in body: continue
+                base_route = ""
+                class_mapping = re.search(
+                    r'@RequestMapping\s*\(\s*(?:value\s*=\s*)?["\']([^"\']+)["\']\s*\)[^{]*class\s+\w+', body,
+                    re.DOTALL)
+                if class_mapping: base_route = class_mapping.group(1)
+                for mm in re.finditer(
+                        r'^[ \t]*@(?:GetMapping|RequestMapping)\s*\(\s*(?:value\s*=\s*)?["\']([^"\']+)["\']\s*\)', body,
+                        re.MULTILINE):
                     route = mm.group(1)
-                    full_route = base_route + ('/' + route if not route.startswith('/') else route)
+                    if route == base_route: continue
+                    route = '/' + route if not route.startswith('/') else route
+                    full_route = route if base_route and route.startswith(base_route) else f"{base_route}{route}"
+                    full_route = full_route.replace('//', '/')
                     low_route = full_route.lower()
+                    if '{' in full_route or '}' in full_route: continue
+                    if any(skip in low_route for skip in
+                           ['save', 'update', 'insert', 'delete', 'remove', 'edit', 'action', 'check', 'login', 'api',
+                            'ajax', 'rest']): continue
+                    parts = [p for p in full_route.replace('.do', '').split('/') if p]
+                    unique_parts = []
+                    for p in parts:
+                        if not unique_parts or unique_parts[-1] != p: unique_parts.append(p)
+                    label = " ".join(p.capitalize() for p in unique_parts) if unique_parts else "Home"
+                    icon = "📋" if "list" in low_route else "📅" if "calendar" in low_route else "✍️" if "form" in low_route or "register" in low_route else "🔍" if "view" in low_route or "detail" in low_route else "📄"
+                    if not any(r['url'] == full_route for r in menu_items):
+                        menu_items.append({'url': full_route, 'label': label, 'icon': icon})
+            except Exception:
+                pass
 
-                    if not full_route.endswith('.do'): continue
-
-                    # [Fix 3] {viewName} 등 동적 변수 라우트 메뉴 생성 제외
-                    if '{' in full_route and '}' in full_route: continue
-
-                    if any(skip in low_route for skip in ['save', 'update', 'insert', 'delete', 'remove', 'edit', 'action', 'check', 'login', 'api']): continue
-
-                    parts = []
-                    for p in full_route.replace('.do', '').split('/'):
-                        if p and p not in parts: parts.append(p)
-                    label = " ".join(p.capitalize() for p in parts)
-
-                    icon = "📋" if "list" in low_route else "📅" if "calendar" in low_route else "✍️" if "form" in low_route or "register" in low_route else "🔍" if "detail" in low_route or "view" in low_route else "📄"
-
-                    if full_route not in [r['url'] for r in menu_items]:
-                        menu_items.append({'url': full_route, 'html': f"""
-        <li style="margin-bottom: 10px;">
-            <a href="<c:url value='{full_route}' />" style="color: #f8fafc; text-decoration: none; font-size: 15px; display: block; padding: 10px; border-radius: 6px; transition: background 0.2s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='transparent'">
-                {icon} {label}
-            </a>
-        </li>"""})
-            except Exception: pass
-
-    left_nav_path = project_root / 'src/main/webapp/WEB-INF/views/common/leftNav.jsp'
-    if left_nav_path.exists() and menu_items:
-        menu_html = "".join(item['html'] for item in menu_items)
-        try:
-            left_nav_path.write_text(f"""<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+    common_views_dir = project_root / 'src/main/webapp/WEB-INF/views/common'
+    if menu_items:
+        common_views_dir.mkdir(parents=True, exist_ok=True)
+        left_menu_html = "".join(f"""
+        <li><a href="<c:url value='{item['url']}' />" class="nav-link">{item['icon']} {item['label']}</a></li>""" for
+                                 item in menu_items)
+        (common_views_dir / 'leftNav.jsp').write_text(f"""<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
-<div style="width: 250px; min-height: 100vh; background: #1e293b; padding: 20px; font-family: 'Segoe UI', Tahoma, sans-serif; float: left; box-sizing: border-box; box-shadow: 2px 0 5px rgba(0,0,0,0.1);">
-    <h2 style="color: #38bdf8; font-size: 16px; margin-top: 0; padding-bottom: 15px; border-bottom: 1px solid #334155;">시스템 메뉴</h2>
-    <ul style="list-style: none; padding: 0; margin: 0;">
-        <li style="margin-bottom: 10px;"><a href="<c:url value='/' />" style="color: #f8fafc; text-decoration: none; font-size: 15px; display: block; padding: 10px; border-radius: 6px;">🏠 홈 (Home)</a></li>
-{menu_html}
+<aside class="sidebar-container">
+    <h2 class="sidebar-title">Main Menu</h2>
+    <ul class="sidebar-menu">
+        <li><a href="<c:url value='/' />" class="nav-link">🏠 Dashboard</a></li>
+{left_menu_html}
     </ul>
-    <a href="/login/login.do" style="display:none;">Login</a>
-    <a href="/member/register.do" style="display:none;">Signup</a>
-</div>""", encoding='utf-8')
-        except Exception: pass
+</aside>""", encoding='utf-8')
+        project_title = getattr(cfg, 'project_name', 'Autopj System')
+        (common_views_dir / 'topNav.jsp').write_text(f"""<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<header class="top-nav">
+    <div class="top-nav-logo">🚀 {project_title}</div>
+    <ul class="top-nav-menu">
+        <li><a href="<c:url value='/' />">Home</a></li>
+        <li><a href="#">Profile</a></li>
+        <li><a href="#">Settings</a></li>
+        <li><a href="#">Logout</a></li>
+    </ul>
+</header>""", encoding='utf-8')
 
     # ---------------------------------------------------------
-    # 3. 프론트엔드 에러 원천 차단
+    # 7. 프론트엔드 레이아웃 찌꺼기 청소 및 완벽 주입
     # ---------------------------------------------------------
     webapp_dir = project_root / 'src/main/webapp/WEB-INF/views'
     if webapp_dir.exists():
         for bad_nav in ['common/nav.jsp', 'common/navi.jsp']:
             bad_path = webapp_dir / bad_nav
             if bad_path.exists():
-                try: bad_path.unlink()
-                except Exception: pass
-
+                try:
+                    bad_path.unlink()
+                except Exception:
+                    pass
         for jsp in webapp_dir.rglob('*.jsp'):
             try:
                 content = jsp.read_text(encoding='utf-8', errors='ignore')
                 new_content = content
-                if 'nav.jsp' in new_content and 'leftNav.jsp' not in new_content:
-                    new_content = new_content.replace('nav.jsp', 'leftNav.jsp')
+
+                new_content = re.sub(r'<link[^>]+href=["\'][^"\']+\.css["\'][^>]*>',
+                                     "<link rel=\"stylesheet\" href=\"<c:url value='/css/common.css' />\">",
+                                     new_content)
+                new_content = new_content.replace('/resources/css/', '/css/')
+
                 if 'checkLoginId.do' in new_content:
-                    new_content = re.sub(r'href=["\'][^"\']*checkLoginId\.do[^"\']*["\']', 'href="javascript:void(0);"', new_content)
+                    new_content = re.sub(r'href=["\'][^"\']*checkLoginId\.do[^"\']*["\']', 'href="javascript:void(0);"',
+                                         new_content)
                     new_content = re.sub(r'action=["\'][^"\']*checkLoginId\.do[^"\']*["\']', 'action=""', new_content)
-                new_content = re.sub(r'(<form:(?:input|errors|hidden|password|textarea|checkbox(?:es)?|radiobutton(?:s)?|select|option(?:s)?)[^>]*?[^\/])>', r'\1 />', new_content)
+
+                # [💡 테이블 반응형 스크롤 적용]
+                new_content = re.sub(r'(<table[^>]*>)', r'<div class="table-responsive">\n\1', new_content)
+                new_content = re.sub(r'(</table>)', r'\1\n</div>', new_content)
+
+                new_content = re.sub(
+                    r'(<form:(?:input|errors|hidden|password|textarea|checkbox(?:es)?|radiobutton(?:s)?|select|option(?:s)?)[^>]*?[^\/])>',
+                    r'\1 />', new_content)
+                new_content = new_content.replace('type="datetime-local"', 'type="date"').replace(
+                    "type='datetime-local'", "type='date'")
+                new_content = new_content.replace('datetimepicker', 'datepicker')
+                new_content = re.sub(r'(pattern=["\']yyyy-MM-dd)\s+HH:mm(?::ss)?(["\'])', r'\1\2', new_content)
+                new_content = re.sub(r'style=["\'][^"\']*background:[^"\']+["\']', '', new_content)
+
+                if 'common' not in jsp.parts and '<body' in new_content:
+                    new_content = re.sub(
+                        r'<(?:c:import|jsp:include)\s+(?:url|page)=["\'][^"\']*(?:leftNav|topNav|nav|navi)\.jsp["\']\s*/>\s*',
+                        '', new_content)
+                    new_content = re.sub(
+                        r'<%@\s*include\s+file=["\'][^"\']*(?:leftNav|topNav|nav|navi)\.jsp["\']\s*%>\s*', '',
+                        new_content)
+
+                    if 'AUTOPJ_3TIER_LAYOUT' not in new_content:
+                        injection = r'\1\n\n<c:import url="/WEB-INF/views/common/topNav.jsp" />\n<div class="body-wrapper">\n<c:import url="/WEB-INF/views/common/leftNav.jsp" />\n<main class="main-content">'
+                        new_content = re.sub(r'(<body[^>]*>)', injection, new_content, count=1)
+                        new_content = re.sub(r'(</body>)', r'</main>\n</div>\n\1', new_content, count=1)
 
                 open_form = len(re.findall(r'<form:form[^>]*>', new_content))
                 close_form = len(re.findall(r'</form:form>', new_content))
-                if open_form > close_form: new_content += '\n</form:form>' * (open_form - close_form)
+                if open_form > close_form:
+                    new_content += '\n</form:form>' * (open_form - close_form)
                 elif close_form > open_form:
-                    for _ in range(close_form - open_form): new_content = re.sub(r'(.*)</form:form>', r'\1', new_content, count=1, flags=re.DOTALL)
+                    for _ in range(close_form - open_form): new_content = re.sub(r'(.*)</form:form>', r'\1',
+                                                                                 new_content, count=1, flags=re.DOTALL)
 
                 if new_content != content: jsp.write_text(new_content, encoding='utf-8')
-            except Exception: pass
+            except Exception:
+                pass

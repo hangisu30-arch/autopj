@@ -28,6 +28,19 @@ def backend_plan_to_prompt_text(plan: Dict[str, Any] | BackendPlanResult | None)
 
     rules_block = [
         "- You MUST generate backend files according to this plan.",
+
+        # 💡 [핵심 강화] 완벽한 CRUD 세트 및 의존성 주입 강제
+        "- 🚨 [CRITICAL CRUD & ARCHITECTURE REQUIREMENT] 🚨",
+        "- For generic CRUD domains, you MUST implement EXACTLY these 5 standard CRUD operations across ALL layers (Controller, Service, ServiceImpl, Mapper, XML):",
+        "-   1) insert (Create)",
+        "-   2) selectList (Read Multiple)",
+        "-   3) selectOne (Read Single)",
+        "-   4) update (Update)",
+        "-   5) delete (Delete)",
+        "- NEVER leave any class or method empty. You MUST fully implement the business logic and SQL queries for all 5 operations.",
+        "- The Controller MUST inject (@Autowired) the Service interface, and the Controller methods MUST call the Service methods. Do NOT leave the Controller disconnected from the Service.",
+        "- In Mapper XML, MUST use standard tags: <insert>, <select>, <update>, <delete> with fully formed SQL matching the schema.",
+
         "- Do not change controller mode computed here. JSP uses MVC, React/Vue use REST, Nexacro uses Nexacro controller style.",
         "- For auth domains, do not emit generic CRUD handlers or CRUD mapper methods.",
         "- JSP MVC Controller must stay thin: only list/detail/form/save/delete handlers unless explicitly required otherwise.",

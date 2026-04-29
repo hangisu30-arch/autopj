@@ -24,6 +24,9 @@ def _split_sql(sql: str):
     return parts
 
 def apply_db_ops(db_ops: list, config: dict):
+    print("DB apply disabled by Master Patch - Spring Boot will handle it!")
+    return
+
     db_conf = _get_db_conf(config)
     if not db_conf.get("enabled", False):
         print("DB apply disabled")

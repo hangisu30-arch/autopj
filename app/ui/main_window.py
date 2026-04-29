@@ -1561,6 +1561,10 @@ class MainWindow(QMainWindow):
             {"key": "code_engine_key", "kind": "combo_data", "widget": self.engine_combo, "default": "ollama"},
             {"key": "design_style_key", "kind": "combo_data", "widget": self.design_style_combo, "default": "simple"},
             {"key": "design_url", "kind": "line", "widget": self.design_url_edit, "default": ""},
+            # 👇👇 [여기에 추가!] 디자인 캡처와 설명을 자동 저장/불러오기 목록에 등록 👇👇
+            {"key": "design_capture", "kind": "line", "widget": getattr(self, 'design_capture_path', None), "default": ""},
+            {"key": "design_desc", "kind": "plain_text", "widget": getattr(self, 'design_desc_input', None), "default": ""},
+            # 👆👆 ---------------------------------------------------------------------- 👆👆
             {"key": "database_key", "kind": "combo_data", "widget": self.db_combo, "default": "sqlite"},
             {"key": "db_name", "kind": "line", "widget": self.db_name_edit, "default": ""},
             {"key": "db_login_id", "kind": "line", "widget": self.db_login_edit, "default": ""},
@@ -1631,6 +1635,11 @@ class MainWindow(QMainWindow):
             if not key:
                 continue
             state[key] = self._read_form_field_value(spec)
+        # [추가] 디자인 캡처와 설명 값을 수집
+        if hasattr(self, 'design_capture_path'):
+            state['design_capture'] = self.design_capture_path.text()
+        if hasattr(self, 'design_desc_input'):
+            state['design_desc'] = self.design_desc_input.toPlainText()
         return state
     def apply_form_state(self, state: dict | None) -> None:
         payload = state or {}
@@ -1649,9 +1658,22 @@ class MainWindow(QMainWindow):
         self._update_operation_mode_state()
         self._update_ollama_gate_state()
         self._refresh_debug_views()
+
+        # [추가] 디자인 캡처와 설명 값을 화면에 다시 채움
+        if hasattr(self, 'design_capture_path') and 'design_capture' in state:
+            self.design_capture_path.setText(state['design_capture'])
+        if hasattr(self, 'design_desc_input') and 'design_desc' in state:
+            self.design_desc_input.setPlainText(state['design_desc'])
+
     def clear_form_state(self) -> None:
         defaults = {str(spec.get("key")): spec.get("default") for spec in self._form_field_specs() if spec.get("key")}
         self.apply_form_state(defaults)
+
+        # [추가] 디자인 캡처와 설명 입력칸 비우기
+        if hasattr(self, 'design_capture_path'):
+            self.design_capture_path.clear()
+        if hasattr(self, 'design_desc_input'):
+            self.design_desc_input.clear()
 
     def _clear_requirement_related_outputs(self) -> None:
         self._last_gemini_json_ok = False
@@ -2187,6 +2209,11 @@ class MainWindow(QMainWindow):
         self.cfg.design_style_key = self.design_style_combo.currentData() or "simple"
         self.cfg.design_style_label = self.design_style_combo.currentText() or "심플"
         self.cfg.design_url = self.design_url_edit.text()
+        # 새로 추가한 필드들도 챙겨줍니다.
+        # ProjectConfig 클래스에 아래 필드들이 정의되어 있어야 합니다.
+        self.cfg.design_capture = getattr(self, 'design_capture_path', QLineEdit()).text()
+        self.cfg.design_desc = getattr(self, 'design_desc_input', QTextEdit()).toPlainText()
+
         self.cfg.database_key = self.db_combo.currentData() or "sqlite"
         self.cfg.database_label = self.db_combo.currentText() or "SQLite"
         self.cfg.db_name = self.db_name_edit.text()
@@ -2233,11 +2260,13 @@ class MainWindow(QMainWindow):
         QMessageBox.information(self, "현재 설정", msg)
 
     def _browse_design_capture(self):
-        """디자인 캡처 이미지 선택 창"""
-        from PyQt5.QtWidgets import QFileDialog
-        options = QFileDialog.Options()
+        """디자인 캡처 이미지 선택 창 (PyQt6 버전)"""
+        # 상단에 이미 QFileDialog가 import 되어 있으므로 바로 사용합니다.
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "디자인 캡처 이미지 선택", "", "Images (*.png *.jpg *.jpeg *.bmp);;All Files (*)", options=options
+            self,
+            "디자인 캡처 이미지 선택",
+            "",
+            "Images (*.png *.jpg *.jpeg *.bmp);;All Files (*)"
         )
         if file_path:
             self.design_capture_path.setText(file_path)
